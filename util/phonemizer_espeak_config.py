@@ -5,7 +5,9 @@
 import os
 from phonemizer.backend.espeak.wrapper import EspeakWrapper
 
-# Set up eSpeak-NG globally
-EspeakWrapper.set_library("C:\\Program Files\\eSpeak NG\\libespeak-ng.dll")
+
 os.environ["PATH"] += r";C:\Program Files\eSpeak NG"
 os.environ["ESPEAK_DATA_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng-data"
+
+# Set up eSpeak-NG globally
+EspeakWrapper.set_library("C:\\Program Files\\eSpeak NG\\libespeak-ng.dll")
