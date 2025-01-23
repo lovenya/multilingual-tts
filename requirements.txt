@@ -1,0 +1,4 @@
+tqdm
+pydub
+indic-nlp-library
+inflect
