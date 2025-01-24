@@ -87,7 +87,7 @@ def phonemize_transcripts(base_path):
             ]
 
             # Use ProcessPoolExecutor for multiprocessing
-            with ProcessPoolExecutor(max_workers=8) as executor:
+            with ProcessPoolExecutor(max_workers=6) as executor:
                 list(
                     tqdm(
                         executor.map(process_file, args_list),
