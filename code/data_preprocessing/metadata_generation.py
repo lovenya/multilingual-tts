@@ -1,3 +1,6 @@
+# this generates the train.csv, validation.csv, and the test.csv CSVs
+# these CSVs has 4 columns, audio_filepath, transcript, language, speaker_id
+
 import os
 import random
 import csv
