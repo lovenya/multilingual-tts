@@ -1,0 +1,9 @@
+did not do normalize_audio_loudness as of now due to it feeling unnecessary and might lower the loudness pitch levels that may tamper with the model's efficiency
+retained the punctuation in normalize_transcripts for similar reasons, ?, ! are important for guessing the tone
+
+setting up espeak backend and configuring it for Phonemizer was hell, but it got solved by adding two lines.
+The second line was found in the Phonemizer docs (bootphon)
+
+for phoneme generation I am using hindi for bhojpuri's fallback since it is not supported out of the box by Phonemizer itself.
+
+select the interpreter for the virtual environment before starting
