@@ -20,10 +20,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Environment setup for eSpeak-NG
-os.environ["PATH"] += r";C:\Program Files\eSpeak NG"
-os.environ["ESPEAK_DATA_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng-data"
-EspeakWrapper.set_library("C:\\Program Files\\eSpeak NG\\libespeak-ng.dll")
+# # Environment setup for eSpeak-NG
+# os.environ["PATH"] += r";C:\Program Files\eSpeak NG"
+# os.environ["ESPEAK_DATA_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng-data"
+# EspeakWrapper.set_library("C:\\Program Files\\eSpeak NG\\libespeak-ng.dll")
 
 # Language code mapping for Phonemizer
 LANGUAGE_MAPPING = {

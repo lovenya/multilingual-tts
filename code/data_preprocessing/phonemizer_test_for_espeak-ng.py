@@ -1,12 +1,12 @@
 import os
 from phonemizer.phonemize import phonemize
 
-# Add eSpeak-NG path dynamically
-os.environ["PATH"] += r";C:\Program Files\eSpeak NG"  # Adjust if necessary
-os.environ["ESPEAK_DATA_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng-data"
-from phonemizer.backend.espeak.wrapper import EspeakWrapper
+# # Add eSpeak-NG path dynamically
+# os.environ["PATH"] += r";C:\Program Files\eSpeak NG"  # Adjust if necessary
+# os.environ["ESPEAK_DATA_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng-data"
+# from phonemizer.backend.espeak.wrapper import EspeakWrapper
 
-EspeakWrapper.set_library("C:\Program Files\eSpeak NG\libespeak-ng.dll")
+# EspeakWrapper.set_library("C:\Program Files\eSpeak NG\libespeak-ng.dll")
 
 
 def test_espeak_ng():
