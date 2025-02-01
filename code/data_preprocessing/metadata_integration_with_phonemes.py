@@ -1,71 +1,46 @@
-# this integrates the CSVs in metadata/ folder with another column of phoneme sequences
-# which it takes from the phonemes folders present in the folders of all the 8 speakers.
-# the code is to be tested of course since i was running into RAM memory issues,
-# and thus the phoneme sequences haven't ben generate for like >90% dataset. 
-
 import os
 import pandas as pd
-from phonemizer import phonemize
-from phonemizer.separator import Separator
 
-def generate_phoneme_sequences(csv_path, language_code_map, output_path):
-    """
-    Adds a 'phoneme_sequence' column to the metadata CSV by generating phonemes for each transcript.
+# Path to the dataset
+base_path = "dataset"
+metadata_path = os.path.join(base_path, "metadata")
 
-    Args:
-        csv_path (str): Path to the input CSV file.
-        language_code_map (dict): Mapping of speaker prefixes to phonemizer language codes (e.g., {'en': 'en-us'}).
-        output_path (str): Path to save the updated CSV.
-    """
-    # Load the CSV
-    df = pd.read_csv(csv_path)
+# Metadata files
+metadata_files = ["train.csv", "validation.csv", "test.csv"]
 
-    # Ensure the expected columns exist
-    if 'transcript' not in df.columns or 'speaker_id' not in df.columns:
-        raise ValueError("The CSV must contain 'transcript' and 'speaker_id' columns.")
+# Function to read phoneme sequence correctly
+def get_phoneme_sequence(audio_filepath):
+    # Extract the relevant parts of the path to locate the phoneme file
+    file_parts = audio_filepath.split("/")
+    speaker_folder = file_parts[-3]  # E.g., Bhojpuri_F
+    file_name = file_parts[-1].replace(".wav", ".txt")  # Replace .wav with .txt
 
-    # Initialize phoneme_sequence column
-    df['phoneme_sequence'] = ""
+    # Construct the phoneme file path
+    phoneme_path = os.path.join(base_path, speaker_folder, "phonemes", file_name)
 
-    for index, row in df.iterrows():
-        transcript = row['transcript']
-        speaker_id = row['speaker_id']
+    try:
+        # Read the phoneme file with correct encoding
+        with open(phoneme_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return ""  # Return an empty string if the phoneme file is missing
 
-        # Determine language based on speaker ID prefix (e.g., en_f, gu_m)
-        lang_prefix = speaker_id.split('_')[0]  # Extract language prefix
-        language_code = language_code_map.get(lang_prefix)
+# Process each metadata file
+for metadata_file in metadata_files:
+    file_path = os.path.join(metadata_path, metadata_file)
+    
+    # Read the metadata file with correct encoding
+    df = pd.read_csv(file_path, encoding="utf-8")
+    
+    # Ensure no changes to existing columns
+    if "phoneme_sequence" in df.columns:
+        df = df.drop(columns=["phoneme_sequence"])  # Remove if already exists
+    
+    # Add the phoneme_sequence column
+    df["phoneme_sequence"] = df["audio_filepath"].apply(get_phoneme_sequence)
+    
+    # Save the updated metadata file with correct encoding
+    updated_file_path = os.path.join(metadata_path, f"updated_{metadata_file}")
+    df.to_csv(updated_file_path, index=False, encoding="utf-8-sig")
 
-        if language_code is None:
-            raise ValueError(f"No language mapping found for speaker ID prefix: {lang_prefix}")
-
-        # Generate phoneme sequence
-        phoneme_sequence = phonemize(
-            transcript,
-            language=language_code,
-            backend='espeak',
-            separator=Separator(word="|", syllable=" ", phone=""),
-        )
-
-        # Store in the DataFrame
-        df.at[index, 'phoneme_sequence'] = phoneme_sequence
-
-    # Save updated CSV
-    df.to_csv(output_path, index=False)
-
-# Mapping speaker ID prefixes to phonemizer language codes
-language_code_map = {
-    'en': 'en-us',
-    'gu': 'gu',
-    'kn': 'kn',
-    'bh': 'hi',  # Bhojpuri fallback to Hindi
-}
-
-# Paths to metadata CSVs
-metadata_folder = "dataset/metadata"
-
-for split in ['train', 'test', 'validation']:
-    input_csv = os.path.join(metadata_folder, f"{split}.csv")
-    output_csv = os.path.join(metadata_folder, f"{split}_updated.csv")
-
-    # Generate metadata with phoneme sequences
-    generate_phoneme_sequences(input_csv, language_code_map, output_csv)
+print("Phoneme sequences successfully added to the metadata files.")

@@ -35,7 +35,7 @@ def generate_metadata(base_path, output_dir):
 
                 # Extract language and speaker ID from the folder name
                 lang_code, gender = lang.split("_")
-                speaker_id = f"spk_{lang_code}_{gender}"
+                speaker_id = f"{lang_code}_{gender}"
 
                 # Read transcript from the corresponding .txt file
                 with open(txt_file, "r", encoding="utf-8") as f:
@@ -52,6 +52,7 @@ def generate_metadata(base_path, output_dir):
                 )
 
     # Shuffle the metadata randomly
+    random.seed(21)  # Using a specific integer for reproducibility
     random.shuffle(metadata)
 
     # Split into train, validation, and test sets (80-10-10)

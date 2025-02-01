@@ -7,3 +7,7 @@ The second line was found in the Phonemizer docs (bootphon)
 for phoneme generation I am using hindi for bhojpuri's fallback since it is not supported out of the box by Phonemizer itself.
 
 select the interpreter for the virtual environment before starting
+
+encoding issues with putting transcript into excel files
+i'll include how i solved them
+instead of utf-8, i used utf-8-sig
