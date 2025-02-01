@@ -90,7 +90,7 @@ def write_to_csv(data, output_file):
 if __name__ == "__main__":
     # Set paths
     dataset_path = "dataset"  # Replace with your dataset path
-    output_metadata_dir = "dataset\metadata"  # Directory to save metadata CSVs
+    output_metadata_dir = "dataset/metadata"  # Directory to save metadata CSVs
 
     # Generate metadata
     generate_metadata(dataset_path, output_metadata_dir)
