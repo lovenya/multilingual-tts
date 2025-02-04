@@ -126,7 +126,7 @@ def normalize_transcripts(base_path):
 
 if __name__ == "__main__":
     # Set the path to the dataset directory
-    dataset_path = "dataset"  # Replace with your dataset path
+    dataset_path = "dataset" 
 
     # Normalize all transcripts
     normalize_transcripts(dataset_path)

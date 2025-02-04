@@ -1,0 +1,14 @@
+first run untar and unzip from util/ if you've installed dataset via the wget method (terminal/CLI)
+then util/removing_uneccessary_nesting to fix the folder structure of the dataset
+then we move to data_preprocessing
+    - file_nomenclature.py
+    - normalize_audio_sampling.py
+    - normalize_transcript.py
+    - metadata_generation.py
+    - phoneme_generation.py
+    - metadata_integration_with_phonemes.py
+
+then we move to feature extraction
+    - pitch_extraction.py
+    - energy_extraction.py
+
