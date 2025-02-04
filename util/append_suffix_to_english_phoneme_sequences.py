@@ -29,9 +29,7 @@ def update_english_phoneme_sequences(dataset_dir: Path):
                     print(f"Updated {file_path} with (en-us) prefix.")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Add (en-us) prefix to English phoneme sequences."
-    )
+    
     dataset_dir = "dataset"
     
     dataset_path = Path(dataset_dir)
