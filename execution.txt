@@ -8,6 +8,9 @@ then we move to data_preprocessing
     - phoneme_generation.py
     - metadata_integration_with_phonemes.py
 
+now from the util folder
+    - append_suffix_to_english_phoneme_sequences.py
+
 now we'll hafve to install nemo_toolkit
 but you'll face a lot of problems
 
