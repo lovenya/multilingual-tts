@@ -49,7 +49,7 @@ if __name__ == "__main__":
         for token in fixed_inventory:
             f.write(token + "\n")
     print(f"Fixed inventory saved to {output_file}")
-
+    print(f"Total phonemes in inventory: {len(fixed_inventory)}")
 
 # The phoneme inventory provided is based on standard phoneme sets for each language (English, Bhojpuri, Gujarati, Kannada), 
 # which are commonly used in phonetic transcription systems like the International Phonetic Alphabet (IPA). 
