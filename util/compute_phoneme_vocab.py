@@ -29,13 +29,20 @@ def compute_phoneme_vocab(dataset_dir: Path):
     return vocab
 
 def main():
-    dataset_dir = "dataset"
+    parser = argparse.ArgumentParser(
+        description="Compute the phoneme vocabulary from the dataset phoneme sequences."
+    )
+  
+    parser.add_argument("--print_tokens", action="store_true",
+                        help="Also print the full list of phoneme tokens.")
+    args = parser.parse_args()
     
-    dataset_path = Path(dataset_dir)
+    dataset_path = Path("dataset")
     vocab = compute_phoneme_vocab(dataset_path)
     
     print("Phoneme vocabulary size:", len(vocab))
-    print("Phoneme tokens:", sorted(vocab))
+    if args.print_tokens:
+        print("Phoneme tokens:", sorted(vocab))
 
 if __name__ == "__main__":
     main()
