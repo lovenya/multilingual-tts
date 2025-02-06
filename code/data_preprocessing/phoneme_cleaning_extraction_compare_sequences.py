@@ -92,3 +92,23 @@ if __name__ == "__main__":
     
     # Print the count of unique phonemes
     print(f"\nTotal unique phonemes in dataset: {len(extracted_phonemes)}")
+    
+    # # ---------------------------
+# # (Optional) Automated mapping suggestion (for review)
+# # ---------------------------
+# def suggest_mapping(unique_phonemes, fixed_inventory_tokens):
+#     """
+#     For each unique phoneme from the dataset (after removing language prefixes),
+#     suggest a mapping based on similarity to tokens in the fixed inventory.
+#     """
+#     suggestions = {}
+#     for phoneme in unique_phonemes:
+#         fixed_tokens = [token.split(") ")[1] for token in fixed_inventory_tokens if ") " in token]
+#         match = difflib.get_close_matches(phoneme, fixed_tokens, n=1)
+#         if match:
+#             suggestions[phoneme] = match[0]
+#     return suggestions
+
+# (You can use the above function to help build a mapping dictionary,
+# but here we are relying on minimal normalization.)
+
