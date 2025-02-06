@@ -53,4 +53,4 @@ def verify_alignment(audio_path, pitch_path, energy_path, sr=16000, n_fft=1024, 
     plt.tight_layout()
     plt.show()
 
-verify_alignment("dataset/English_F/wav/En_F_00001.wav", "dataset/English_F/pitches/En_F_00001.npy", "dataset/English_F/energies/En_F_00001.npy")
+verify_alignment("dataset/English_F/wav/En_F_00036.wav", "dataset/English_F/pitches/En_F_00036.npy", "dataset/English_F/energies/En_F_00036.npy")

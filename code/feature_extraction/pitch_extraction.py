@@ -7,7 +7,7 @@ from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 
 
-def nemo_extract_pitch(file_path, sr=16000, frame_period=5.0):
+def nemo_extract_pitch(file_path, sr=16000, frame_period=16.0):
     """
     Extracts pitch (F0) using pyworld.dio and pyworld.stonemask.
     
@@ -26,7 +26,7 @@ def nemo_extract_pitch(file_path, sr=16000, frame_period=5.0):
     f0 = pyworld.stonemask(audio, f0, time_axis, sr)
     return f0, time_axis
 
-def process_language_folder(lang_folder: Path, sr=16000, frame_period=5.0):
+def process_language_folder(lang_folder: Path, sr=16000, frame_period=16.0):
     """
     Processes a single language/speaker folder by iterating over its WAV files,
     extracting pitch, and saving them in a new subdirectory.
@@ -59,7 +59,10 @@ def process_language_folder(lang_folder: Path, sr=16000, frame_period=5.0):
 def main():
   
     sr = 16000
-    frame_period = 5.0
+    hop_length = 256
+    frame_period = 16.0
+    # frame_period = hop_length / sr * 1000  # in ms, where hop_length is the number of samples and sr is the sample rate
+
     
     dataset_path = Path("dataset")
     # Process all subdirectories except for "metadata"
