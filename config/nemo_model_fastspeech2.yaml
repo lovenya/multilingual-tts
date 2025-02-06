@@ -1,5 +1,5 @@
 # config/nemo_model_config.yaml
-phoneme_vocab_size: 50             # Adjust as needed
+phoneme_vocab_size: 134            # number based on 
 phoneme_embedding_dim: 256         # This will be loaded from a pre-trained checkpoint if available.
 language_vocab_size: 4             # For {en, gu, bh, kn}
 language_embedding_dim: 32
