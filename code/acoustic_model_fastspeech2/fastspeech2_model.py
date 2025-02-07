@@ -53,7 +53,7 @@ class FastSpeech2MultiLingual(nn.Module):
         # Project to hidden dimension.
         x = self.input_projection(embed)  # (B, T, hidden_size)
         
-        # Transformer expects input in shape (T, B, hidden_size).
+        # Transformer encoder expects input in shape (T, B, hidden_size).
         x = x.transpose(0, 1)
         encoder_output = self.encoder(x)
         encoder_output = encoder_output.transpose(0, 1)  # (B, T, hidden_size)
