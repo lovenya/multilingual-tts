@@ -128,7 +128,7 @@ def build_phoneme_vocab():
 # Example usage:
 if __name__ == '__main__':
     # Example mappings (replace with your actual mappings)
-    phoneme_vocab = get_fixed_inventory  # Extend to your full phoneme vocabulary (from fixed inventory)
+    phoneme_vocab = build_phoneme_vocab()  # Extend to your full phoneme vocabulary (from fixed inventory)
     language_map = {"english": 0, "gujarathi": 1, "bhojpuri": 2, "kannada": 3}
     speaker_map = {"english_f": 0, "english_m": 1, "bhojpuri_f": 2, "bhojpuri_m": 3,
                    "gujarathi_f": 4, "gujarathi_m": 5, "kannada_f": 6, "kannada_m": 7}
