@@ -61,7 +61,7 @@ class TTSDataset(Dataset):
         file_id = row['file_id']   # Base filename (without extension)
         language = row['language'].lower()
         speaker = row['speaker_id'].lower()  # e.g., "english_f"
-        folder = row['folder']  # Speaker/language folder name
+        folder = row['speaker_id']  # Speaker/language folder name
         
         # Construct file paths
         sample_folder = os.path.join(self.root_dir, folder)
