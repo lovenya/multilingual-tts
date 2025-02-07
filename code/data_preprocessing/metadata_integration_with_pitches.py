@@ -34,7 +34,7 @@ for metadata_file in metadata_files:
     df["pitch_filepath"] = df["audio_filepath"].apply(get_pitch_filepath)
     
     # Save the updated metadata file
-    updated_file_path = os.path.join(metadata_path, f"updated_{metadata_file}")
+    updated_file_path = os.path.join(metadata_path, f"{metadata_file}")
     df.to_csv(updated_file_path, index=False, encoding="utf-8-sig")
 
 print("Pitch file paths successfully added to the metadata files.")
