@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from nemo.collections.tts.models import FastSpeech2Model
 from embeddings import Embeddings
 from predictors import DurationPredictor, PitchPredictor, EnergyPredictor
 
@@ -8,28 +9,33 @@ class FastSpeech2MultiLingual(nn.Module):
         super(FastSpeech2MultiLingual, self).__init__()
         self.hidden_size = config["hidden_size"]
         
-        # Embeddings: phoneme, language, and speaker embeddings.
+        # Initialize custom embeddings.
         self.embeddings = Embeddings(
-            config["phoneme_vocab_size"], config["phoneme_embedding_dim"],
-            config["language_vocab_size"], config["language_embedding_dim"],
-            config["speaker_vocab_size"], config["speaker_embedding_dim"]
+            config["phoneme_vocab_size"],
+            config["phoneme_embedding_dim"],
+            config["language_vocab_size"],
+            config["language_embedding_dim"],
+            config["speaker_vocab_size"],
+            config["speaker_embedding_dim"]
         )
         
-        # Input projection: combine embeddings to hidden size.
-        combined_dim = config["phoneme_embedding_dim"] + config["language_embedding_dim"] + config["speaker_embedding_dim"]
-        self.input_projection = nn.Linear(combined_dim, self.hidden_size)
+        # Input projection: combine embeddings to hidden dimension.
+        combined_dim = (config["phoneme_embedding_dim"] + 
+                        config["language_embedding_dim"] + 
+                        config["speaker_embedding_dim"])
+        self.input_projection = nn.Linear(combined_dim, config["hidden_size"])
         
-        # Transformer Encoder as backbone.
-        encoder_layer = nn.TransformerEncoderLayer(d_model=self.hidden_size, nhead=config["n_heads"], dropout=config["dropout"])
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=config["n_layers"])
+        # Load Nemo's pre-trained FastSpeech2 model and use its encoder as the backbone.
+        base_model = FastSpeech2Model.from_pretrained("tts_en_fastspeech2")
+        self.encoder = base_model.encoder  # Use the pre-trained encoder
         
-        # Predictors.
-        self.duration_predictor = DurationPredictor(self.hidden_size, kernel_size=3, dropout=config["dropout"])
-        self.pitch_predictor = PitchPredictor(self.hidden_size, kernel_size=3, dropout=config["dropout"])
-        self.energy_predictor = EnergyPredictor(self.hidden_size, kernel_size=3, dropout=config["dropout"])
+        # Reinitialize predictors to train from scratch.
+        self.duration_predictor = DurationPredictor(config["hidden_size"], kernel_size=3, dropout=config["dropout"])
+        self.pitch_predictor = PitchPredictor(config["hidden_size"], kernel_size=3, dropout=config["dropout"])
+        self.energy_predictor = EnergyPredictor(config["hidden_size"], kernel_size=3, dropout=config["dropout"])
         
-        # Final projection: project encoder output to mel-spectrogram dimension.
-        self.mel_linear = nn.Linear(self.hidden_size, config["mel_dim"])
+        # Final projection to map encoder outputs to mel-spectrogram.
+        self.mel_linear = nn.Linear(config["hidden_size"], config["mel_dim"])
     
     def forward(self, phoneme_seq, language_ids, speaker_ids, durations=None, pitch=None, energy=None):
         """
@@ -39,7 +45,7 @@ class FastSpeech2MultiLingual(nn.Module):
             phoneme_seq (LongTensor): [B, T] phoneme indices.
             language_ids (LongTensor): [B] or [B, T] language IDs.
             speaker_ids (LongTensor): [B] speaker IDs.
-            durations, pitch, energy: Optional targets.
+            durations, pitch, energy: Optional targets for training.
         
         Returns:
             mel_out: Predicted mel-spectrogram [B, T, mel_dim].
@@ -47,18 +53,18 @@ class FastSpeech2MultiLingual(nn.Module):
             pred_pitch: Pitch predictor output [B, T].
             pred_energy: Energy predictor output [B, T].
         """
-        # Get embeddings.
-        embed = self.embeddings(phoneme_seq, language_ids, speaker_ids)
+        # Obtain embeddings.
+        embed = self.embeddings(phoneme_seq, language_ids, speaker_ids)  # (B, T, combined_dim)
         
-        # Project to hidden dimension.
+        # Project embeddings to hidden size.
         x = self.input_projection(embed)  # (B, T, hidden_size)
         
-        # Transformer encoder expects input in shape (T, B, hidden_size).
+        # Transformer encoder expects (T, B, hidden_size).
         x = x.transpose(0, 1)
         encoder_output = self.encoder(x)
         encoder_output = encoder_output.transpose(0, 1)  # (B, T, hidden_size)
         
-        # Predict durations, pitch, and energy.
+        # Predict prosodic features.
         pred_duration = self.duration_predictor(encoder_output)
         pred_pitch = self.pitch_predictor(encoder_output)
         pred_energy = self.energy_predictor(encoder_output)
