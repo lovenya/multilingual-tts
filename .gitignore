@@ -15,5 +15,8 @@ mamba_ssm-2.2.2+cu118torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl.2
 mamba_ssm-2.2.2+cu118torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl.3
 /lovenya-tts/
 phonemizer.log
-
+*.pub
+*.deb
+*.pub.5
+*.pub.1
 

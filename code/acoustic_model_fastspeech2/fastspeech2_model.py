@@ -1,8 +1,12 @@
+import patch_numpy
+
 import torch
 import torch.nn as nn
 from nemo.collections.tts.models import FastSpeech2Model
 from embeddings import Embeddings
 from predictors import DurationPredictor, PitchPredictor, EnergyPredictor
+
+
 
 class FastSpeech2MultiLingual(nn.Module):
     def __init__(self, config):
