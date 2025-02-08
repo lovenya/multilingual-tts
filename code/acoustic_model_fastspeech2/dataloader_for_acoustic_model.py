@@ -6,7 +6,7 @@ import torchaudio
 import pandas as pd
 import torch.nn.utils.rnn as rnn_utils
 
-from generate_phoneme_inventory import get_fixed_inventory
+from data_preprocessing.generate_phoneme_inventory import get_fixed_inventory
 
 def compute_mel(wav_path, sr=16000, n_fft=1024, hop_length=256, n_mels=80):
     """
