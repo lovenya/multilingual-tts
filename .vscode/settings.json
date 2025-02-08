@@ -1,5 +1,6 @@
 {
     "python.analysis.extraPaths": [
+        "./code/data_preprocessing",
         "./util"
     ]
 }
