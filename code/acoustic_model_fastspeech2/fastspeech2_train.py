@@ -4,16 +4,16 @@ import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import pandas as pd
 
-# Import ESPnet2's Trainer and TTSTask
+# Import ESPnet2's Trainer and TTSTask interfaces
 from espnet2.train.trainer import Trainer
 from espnet2.tasks.tts import TTSTask
 
 from dataloader_for_acoustic_model import TTSDataset, dynamic_collate_fn
-# For now, we include the fixed phoneme inventory function here due to import issues.
+from fastspeech2_model import FastSpeech2MultiLingual
+
+
+# For now, due to import issues, we include get_fixed_inventory() here directly.
 def get_fixed_inventory():
-    """
-    Returns a fixed, unified phoneme inventory for the four languages.
-    """
     inventory = [
         # English (en-us)
         "(en-us) p", "(en-us) b", "(en-us) t", "(en-us) d", "(en-us) k", "(en-us) g",
@@ -44,17 +44,20 @@ def get_fixed_inventory():
     ]
     return inventory
 
+
 def build_phoneme_vocab():
-    fixed_inventory = get_fixed_inventory()  # Returns list of phoneme tokens.
+    fixed_inventory = get_fixed_inventory()
     phoneme_vocab = {token: idx for idx, token in enumerate(fixed_inventory)}
     return phoneme_vocab
+
 
 def load_config(config_path):
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     return config
 
-# Define a custom TTS Task that wraps our model.
+
+# Define a custom TTS Task using ESPnet2's TTSTask interface.
 class CustomTTSTask(TTSTask):
     @classmethod
     def build_model(cls, args):
@@ -73,20 +76,21 @@ class CustomTTSTask(TTSTask):
         ])
         return optimizer
 
+
 def main():
     # Load configuration.
     config = load_config("config/espnet2_model_fastspeech2.yaml")
-    
+
     # Build phoneme vocabulary.
     phoneme_vocab = build_phoneme_vocab()
-    
-    # Define mapping dictionaries.
+
+    # Mapping dictionaries.
     language_map = {"english": 0, "gujarathi": 1, "bhojpuri": 2, "kannada": 3}
     speaker_map = {
         "english_f": 0, "english_m": 1, "bhojpuri_f": 2, "bhojpuri_m": 3,
         "gujarathi_f": 4, "gujarathi_m": 5, "kannada_f": 6, "kannada_m": 7
     }
-    
+
     # Create training dataset.
     train_metadata = "dataset/metadata/updated_train.csv"
     train_dataset = TTSDataset(
@@ -96,8 +100,8 @@ def main():
         language_map=language_map,
         speaker_map=speaker_map
     )
-    
-    # Create weighted sampler based on language.
+
+    # Create weighted sampler.
     df_train = pd.read_csv(train_metadata, encoding="utf-8-sig")
     weights = []
     for _, row in df_train.iterrows():
@@ -105,12 +109,12 @@ def main():
         weights.append(2.0 if lang in ["gujarathi", "bhojpuri"] else 1.0)
     weights = torch.tensor(weights, dtype=torch.float)
     sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
-    
+
     train_loader = DataLoader(
         train_dataset, batch_size=32, collate_fn=dynamic_collate_fn, sampler=sampler
     )
-    
-    # Create validation DataLoader.
+
+    # Validation DataLoader.
     val_metadata = "dataset/metadata/updated_validation.csv"
     val_dataset = TTSDataset(
         root_dir="dataset",
@@ -120,22 +124,21 @@ def main():
         speaker_map=speaker_map
     )
     val_loader = DataLoader(val_dataset, batch_size=32, collate_fn=dynamic_collate_fn, shuffle=False)
-    
+
     # Initialize our multilingual FastSpeech2 model.
-    from fastspeech2_model import FastSpeech2MultiLingual  # Ensure correct import path.
     model = FastSpeech2MultiLingual(config)
     model = model.cuda()
-    
-    # Pass the model via a simple args object.
+
+    # Pass the model via an Args object.
     class Args:
         pass
     args = Args()
     args.model = model
-    
+
     # Build our custom TTS task.
     task = CustomTTSTask.build(args)
-    
-    # Create the ESPnet2 Trainer with logging and progress bar settings.
+
+    # Create the ESPnet2 Trainer with logging options.
     trainer = Trainer(
         task=CustomTTSTask,
         train_loader=train_loader,
@@ -143,12 +146,13 @@ def main():
         max_epoch=50,
         expdir="exp/tts_train",
         resume=False,
-        log_interval=50,      # Log every 50 batches (adjust as needed)
-        verbose=True          # Enable verbose logging to show progress details
+        log_interval=50,
+        verbose=True
     )
-    
-    # Start training.
+
+    # Run training.
     trainer.run()
-    
+
+
 if __name__ == "__main__":
     main()

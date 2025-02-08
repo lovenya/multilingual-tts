@@ -1,4 +1,3 @@
-# config/espnet_model_fastspeech2.yaml
 # Phoneme vocabulary settings.
 phoneme_vocab_size: 134            # Should match the number of tokens returned by get_fixed_inventory()
 phoneme_embedding_dim: 256         # Dimension of phoneme embeddings
@@ -27,5 +26,5 @@ postnet_filts: 5                   # Filter size in the postnet
 mel_dim: 80                        # Number of mel-spectrogram channels
 
 # Additional parameters (if needed)
-# For example, you might add paths to pre-trained weights if available.
-# pretrained_phoneme_embedding_path: "checkpoints/pretrained_phoneme_emb.pt"
+# Path to pretrained encoder weights
+pretrained_encoder_path: "checkpoints/exp/tts_train_fastspeech2_raw_phn_tacotron_g2p_en_no_space/train.loss.ave_5best.pth"

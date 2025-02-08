@@ -50,3 +50,7 @@ then we move to data_preprocessing
     - metadata_integration_with_energies.py
     - metadata_integration_with_pitches.py
 
+then change env for espnet2 installation
+then do pip install espnet2
+then run 
+    - fastspeech2_train.py
