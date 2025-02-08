@@ -57,7 +57,7 @@ def get_fixed_inventory():
 
 
 
-def compute_mel(wav_path, sr=16000, n_fft=1024, hop_length=256, n_mels=80):
+def compute_mel(wav_path, sr=22050, n_fft=1024, hop_length=256, n_mels=80):
     """
     Computes the mel-spectrogram on the fly using torchaudio.
     
@@ -85,7 +85,7 @@ def compute_mel(wav_path, sr=16000, n_fft=1024, hop_length=256, n_mels=80):
     return mel_spec.squeeze(0)  # (n_mels, T)
 
 class TTSDataset(Dataset):
-    def __init__(self, root_dir, metadata_csv, phoneme_vocab, language_map, speaker_map, sr=16000):
+    def __init__(self, root_dir, metadata_csv, phoneme_vocab, language_map, speaker_map, sr=22050):
         """
         Args:
             root_dir (str): Root directory of the dataset.

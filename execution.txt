@@ -6,7 +6,7 @@ then we move to data_preprocessing
     - normalize_transcript.py
     - metadata_generation.py
     - phoneme_generation.py
-    - metadata_integration_with_phonemes.py
+
 
 now from the util folder
     - append_suffix_to_english_phoneme_sequences.py
@@ -27,10 +27,26 @@ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/
 pip install mamba_ssm-2.2.2+cu118torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
 pip install nemo_toolkit[all]W
 
-now ther shoudn't be any problems
+now there shoudn't be any problems
 if there still arises any problems, please open an issue or mail me at lovenya2002@gmail.com
+
+
+then we run
+    - generate_phoneme_inventory.py
+
+then we go to util
+we have appending suffices functions to phoneme tokens, if it is needed
+
+after all this we go to data_preprocessing again and run
+    - normalize_and_clean_phoneme_sequences.py
+    - metadata_integration_with_phonemes.py
+
 
 then we move to feature extraction
     - pitch_extraction.py
     - energy_extraction.py
+
+then we move to data_preprocessing
+    - metadata_integration_with_energies.py
+    - metadata_integration_with_pitches.py
 

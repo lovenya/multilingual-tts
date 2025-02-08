@@ -4,7 +4,7 @@ import numpy as np
 import torchaudio
 import matplotlib.pyplot as plt
 
-def verify_alignment(audio_path, pitch_path, energy_path, sr=16000, n_fft=1024, hop_length=256, n_mels=80):
+def verify_alignment(audio_path, pitch_path, energy_path, sr=22050, n_fft=1024, hop_length=256, n_mels=80):
     """
     Computes the mel-spectrogram on the fly for a given audio file and compares its frame count
     with the lengths of the pitch and energy arrays.

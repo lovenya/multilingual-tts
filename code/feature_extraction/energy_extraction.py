@@ -8,13 +8,13 @@ try:
 except ModuleNotFoundError:
     tqdm = None
 
-def nemo_extract_energy(file_path, sr=16000, frame_length=1024, hop_length=256):
+def nemo_extract_energy(file_path, sr=22050, frame_length=1024, hop_length=256):
     """
     Computes RMS energy frame-by-frame using librosa.
     
     Args:
         file_path (str): Path to the audio file.
-        sr (int): Sampling rate (set to 16000 Hz).
+        sr (int): Sampling rate (set to 22050 Hz).
         frame_length (int): Window length for RMS calculation.
         hop_length (int): Hop length for RMS calculation.
     
@@ -25,7 +25,7 @@ def nemo_extract_energy(file_path, sr=16000, frame_length=1024, hop_length=256):
     energy = librosa.feature.rms(y=audio, frame_length=frame_length, hop_length=hop_length)[0]
     return energy
 
-def process_language_folder_energy(lang_folder: Path, sr=16000, frame_length=1024, hop_length=256):
+def process_language_folder_energy(lang_folder: Path, sr=22050, frame_length=1024, hop_length=256):
     """
     Processes a single language/speaker folder by iterating over its WAV files,
     extracting energy, and saving them in a new subdirectory.
@@ -67,7 +67,7 @@ def main():
         description="Extract energy from all language folders in the dataset."
     )
     
-    sr = 16000
+    sr = 22050
     frame_length = 1024
     hop_length = 256
     
