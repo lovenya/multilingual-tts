@@ -1,0 +1,31 @@
+# config/espnet_model_fastspeech2.yaml
+# Phoneme vocabulary settings.
+phoneme_vocab_size: 134            # Should match the number of tokens returned by get_fixed_inventory()
+phoneme_embedding_dim: 256         # Dimension of phoneme embeddings
+
+# Language and speaker embedding settings.
+language_vocab_size: 4             # For languages: {en, gu, bh, kn}
+language_embedding_dim: 32         # Dimension for language embeddings
+speaker_vocab_size: 8              # Number of speakers in the dataset
+speaker_embedding_dim: 32          # Dimension for speaker embeddings
+
+# Model internal dimensions.
+hidden_size: 512                   # Hidden size for the model (after input projection)
+dropout: 0.1                       # Dropout rate to use throughout the network
+
+# ESPnet2 FastSpeech2 backbone parameters.
+adim: 384                          # Attention dimension for ESPnet2 encoder
+n_heads: 8                       # Number of attention heads (default is 8)
+n_layers: 4                        # Number of layers for both encoder and decoder (if used)
+eunits: 1536                       # Number of units in the encoder
+dunits: 1536                       # Number of units in the decoder (if applicable)
+postnet_layers: 5                  # Number of postnet layers for mel-spectrogram refinement
+postnet_chans: 512                 # Number of channels in the postnet
+postnet_filts: 5                   # Filter size in the postnet
+
+# Output specification.
+mel_dim: 80                        # Number of mel-spectrogram channels
+
+# Additional parameters (if needed)
+# For example, you might add paths to pre-trained weights if available.
+# pretrained_phoneme_embedding_path: "checkpoints/pretrained_phoneme_emb.pt"

@@ -22,7 +22,7 @@ class Embeddings(nn.Module):
         # Phoneme embeddings (B, T, phoneme_embedding_dim)
         ph_emb = self.phoneme_embedding(phoneme_ids)
         
-        # If language_ids are provided as one value per sample, expand to (B, T)
+        # If language_ids are provided as a single value per sample, expand to (B, T)
         if language_ids.dim() == 1:
             language_ids = language_ids.unsqueeze(1).expand(-1, phoneme_ids.size(1))
         lang_emb = self.language_embedding(language_ids)  # (B, T, language_embedding_dim)
@@ -31,6 +31,6 @@ class Embeddings(nn.Module):
         spk_emb = self.speaker_embedding(speaker_ids)
         spk_emb = spk_emb.unsqueeze(1).expand(-1, phoneme_ids.size(1), -1)
         
-        # Concatenate along the feature dimension
+        # Concatenate embeddings along the feature dimension.
         embeddings = torch.cat([ph_emb, lang_emb, spk_emb], dim=-1)
         return embeddings

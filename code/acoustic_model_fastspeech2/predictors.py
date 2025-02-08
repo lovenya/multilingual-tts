@@ -23,13 +23,14 @@ class DurationPredictor(nn.Module):
         x = self.relu(x)
         x = x.transpose(1, 2)
         x = self.layer_norm2(x)
-        # Project back: transpose to (B, T, hidden_size) then linear layer.
         x = self.linear(x.transpose(1, 2))  # (B, T, 1)
         return x.squeeze(-1)
 
 class Predictor(nn.Module):
     """
-    Generic predictor module used for both pitch and energy.
+    Generic predictor module for both pitch and energy.
+    This module is built with a two-layer convolutional network,
+    followed by layer normalization and a final linear projection.
     """
     def __init__(self, hidden_size, kernel_size=3, dropout=0.1):
         super(Predictor, self).__init__()
@@ -55,6 +56,6 @@ class Predictor(nn.Module):
         x = self.linear(x.transpose(1, 2))
         return x.squeeze(-1)
 
-# Aliases for clarity:
+# For clarity, alias the generic Predictor for both pitch and energy.
 PitchPredictor = Predictor
 EnergyPredictor = Predictor

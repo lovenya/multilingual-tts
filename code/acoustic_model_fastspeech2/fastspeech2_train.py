@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from fastspeech2_model import FastSpeech2MultiLingual
 from dataloader_for_acoustic_model import TTSDataset, dynamic_collate_fn
-from data_preprocessing.generate_phoneme_inventory import get_fixed_inventory  # This should provide your fixed inventory list
+from data_preprocessing.generate_phoneme_inventory import get_fixed_inventory
 
 def build_phoneme_vocab():
     fixed_inventory = get_fixed_inventory()  # Returns list of phoneme tokens.
@@ -22,49 +22,58 @@ def load_config(config_path):
 
 def main():
     # Load configuration.
-    config = load_config("config/nemo_model_fastspeech2.yaml")
+    config = load_config("config/espnet2_model_fastspeech2.yaml")  # You might want to rename this to reflect ESPnet2 usage.
     
-    # Build phoneme vocabulary from your fixed inventory.
+    # Build phoneme vocabulary.
     phoneme_vocab = build_phoneme_vocab()
     
     # Define mapping dictionaries.
     language_map = {"english": 0, "gujarathi": 1, "bhojpuri": 2, "kannada": 3}
-    speaker_map = {"english_f": 0, "english_m": 1, "bhojpuri_f": 2, "bhojpuri_m": 3,
-                   "gujarathi_f": 4, "gujarathi_m": 5, "kannada_f": 6, "kannada_m": 7}
+    speaker_map = {
+        "english_f": 0, "english_m": 1, "bhojpuri_f": 2, "bhojpuri_m": 3,
+        "gujarathi_f": 4, "gujarathi_m": 5, "kannada_f": 6, "kannada_m": 7
+    }
     
     # Create training dataset and DataLoader.
-    # NOTE: We derive the sample folder from the speaker_id column.
     train_metadata = "dataset/metadata/updated_train.csv"
-    train_dataset = TTSDataset(root_dir="dataset", metadata_csv=train_metadata,
-                               phoneme_vocab=phoneme_vocab, language_map=language_map, speaker_map=speaker_map)
+    train_dataset = TTSDataset(
+        root_dir="dataset", 
+        metadata_csv=train_metadata,
+        phoneme_vocab=phoneme_vocab, 
+        language_map=language_map, 
+        speaker_map=speaker_map
+    )
     
-    # Create weighted sampling based on language.
+    # Create weighted sampling based on language frequency.
     import pandas as pd
     df_train = pd.read_csv(train_metadata, encoding="utf-8-sig")
     weights = []
     for _, row in df_train.iterrows():
         lang = row['language'].lower()
-        # For underrepresented languages, assign a higher weight.
-        if lang in ["gujarathi", "bhojpuri"]:
-            weights.append(2.0)
-        else:
-            weights.append(1.0)
+        weights.append(2.0 if lang in ["gujarathi", "bhojpuri"] else 1.0)
     weights = torch.tensor(weights, dtype=torch.float)
     sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
     
-    train_loader = DataLoader(train_dataset, batch_size=32, collate_fn=dynamic_collate_fn, sampler=sampler)
+    train_loader = DataLoader(
+        train_dataset, batch_size=32, collate_fn=dynamic_collate_fn, sampler=sampler
+    )
     
     # Create validation DataLoader.
     val_metadata = "dataset/metadata/updated_val.csv"
-    val_dataset = TTSDataset(root_dir="dataset", metadata_csv=val_metadata,
-                             phoneme_vocab=phoneme_vocab, language_map=language_map, speaker_map=speaker_map)
+    val_dataset = TTSDataset(
+        root_dir="dataset", 
+        metadata_csv=val_metadata,
+        phoneme_vocab=phoneme_vocab, 
+        language_map=language_map, 
+        speaker_map=speaker_map
+    )
     val_loader = DataLoader(val_dataset, batch_size=32, collate_fn=dynamic_collate_fn, shuffle=False)
     
-    # Initialize the model.
+    # Initialize the multilingual FastSpeech2 model.
     model = FastSpeech2MultiLingual(config)
     model = model.cuda()
     
-    # Set up optimizer with differential learning rates.
+    # Set up optimizer with differential learning rates:
     optimizer = optim.Adam([
         {'params': model.embeddings.parameters(), 'lr': 1e-3},
         {'params': model.input_projection.parameters(), 'lr': 1e-4},
@@ -75,7 +84,7 @@ def main():
         {'params': model.mel_linear.parameters(), 'lr': 1e-4},
     ])
     
-    # Define loss (L1 loss for mel-spectrogram reconstruction).
+    # Use L1 loss for mel-spectrogram reconstruction.
     criterion = nn.L1Loss()
     
     num_epochs = 50
@@ -83,7 +92,7 @@ def main():
     patience = 5
     patience_counter = 0
     
-    # Training loop with tqdm progress bars.
+    # Training loop.
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -97,7 +106,7 @@ def main():
             
             optimizer.zero_grad()
             mel_out, pred_duration, pred_pitch, pred_energy = model(phoneme_seqs, language_ids, speaker_ids)
-            # Adjust dimensions if necessary: model output is [B, T, mel_dim], target mel_specs is [B, n_mels, T].
+            # Adjust dimensions: model output [B, T, mel_dim]; target mel_specs is [B, n_mels, T].
             loss = criterion(mel_out, mel_specs.transpose(1, 2))
             loss.backward()
             optimizer.step()
@@ -108,7 +117,7 @@ def main():
         avg_train_loss = running_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{num_epochs} - Training Loss: {avg_train_loss:.4f}")
         
-        # Validation step with progress bar.
+        # Validation step.
         model.eval()
         running_val_loss = 0.0
         val_batches = tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Val]", leave=False)
@@ -128,7 +137,7 @@ def main():
         avg_val_loss = running_val_loss / len(val_loader)
         print(f"Epoch {epoch+1}/{num_epochs} - Validation Loss: {avg_val_loss:.4f}")
         
-        # Checkpoint saving and early stopping.
+        # Checkpointing and early stopping.
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             patience_counter = 0
