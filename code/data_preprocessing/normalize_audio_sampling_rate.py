@@ -18,7 +18,7 @@ def normalize_audio_file(file_info):
         print(f"Error processing {wav_path}: {e}")
 
 
-def normalize_audio(base_path, target_sample_rate=16000):
+def normalize_audio(base_path, target_sample_rate=22050):
     """
     Normalize all .wav files in the dataset to a target sample rate using multiprocessing.
     """
@@ -56,4 +56,4 @@ if __name__ == "__main__":
     dataset_path = "dataset"  # Replace with your dataset path
 
     # Normalize all audio files to 16kHz
-    normalize_audio(dataset_path, target_sample_rate=16000)
+    normalize_audio(dataset_path, target_sample_rate=22050)
