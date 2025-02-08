@@ -23,6 +23,7 @@ class DurationPredictor(nn.Module):
         x = self.relu(x)
         x = x.transpose(1, 2)
         x = self.layer_norm2(x)
+        # Project back: transpose to (B, T, hidden_size) then linear layer.
         x = self.linear(x.transpose(1, 2))  # (B, T, 1)
         return x.squeeze(-1)
 
@@ -54,6 +55,6 @@ class Predictor(nn.Module):
         x = self.linear(x.transpose(1, 2))
         return x.squeeze(-1)
 
-# For clarity, we alias the generic Predictor for both pitch and energy:
+# Aliases for clarity:
 PitchPredictor = Predictor
 EnergyPredictor = Predictor

@@ -1,5 +1,3 @@
-import patch_numpy
-
 import torch
 import torch.nn as nn
 from nemo.collections.tts.models import FastSpeech2Model

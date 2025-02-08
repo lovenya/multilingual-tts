@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from fastspeech2_model import FastSpeech2MultiLingual
 from dataloader_for_acoustic_model import TTSDataset, dynamic_collate_fn
-from generate_phoneme_inventory import get_fixed_inventory  # This should provide your fixed inventory list
+from data_preprocessing.generate_phoneme_inventory import get_fixed_inventory  # This should provide your fixed inventory list
 
 def build_phoneme_vocab():
     fixed_inventory = get_fixed_inventory()  # Returns list of phoneme tokens.

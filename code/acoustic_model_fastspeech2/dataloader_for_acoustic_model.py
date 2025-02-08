@@ -124,7 +124,6 @@ def build_phoneme_vocab():
     phoneme_vocab = {token: idx for idx, token in enumerate(fixed_inventory)}
     return phoneme_vocab
 
-
 # Example usage:
 if __name__ == '__main__':
     # Example mappings (replace with your actual mappings)
