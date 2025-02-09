@@ -1,0 +1,49 @@
+# HiFi-GAN Configuration file
+model:
+  # Generator configuration
+  generator:
+    in_channels: 80                  # Input channels (Mel-spectrograms)
+    out_channels: 1                   # Output channels (waveform)
+    kernel_size: 7                    # Kernel size for convolutions
+    stride: 4                         # Stride for convolutions
+    num_layers: 3                     # Number of layers in the generator
+    hidden_channels: 128              # Number of hidden channels
+    residual_channels: 128            # Residual channels for the model
+
+  # Discriminator configuration
+  discriminator:
+    in_channels: 1                    # Input channels (waveform)
+    kernel_size: 5                    # Kernel size for convolutions
+    stride: 4                         # Stride for convolutions
+    num_layers: 3                     # Number of layers in the discriminator
+    hidden_channels: 128              # Number of hidden channels
+    residual_channels: 128            # Residual channels for the model
+
+  # Training settings
+  batch_size: 16                      # Batch size for training
+  lr: 1e-4                            # Learning rate for Adam optimizer
+  betas: [0.9, 0.999]                 # Adam optimizer betas
+  eps: 1e-8                           # Adam optimizer epsilon
+  num_epochs: 200                     # Number of epochs to train
+  weight_decay: 0.0                   # Weight decay for the optimizer
+
+  # Loss functions
+  adversarial_loss_weight: 1.0        # Weight for adversarial loss
+  mel_loss_weight: 45.0               # Weight for mel spectrogram loss
+  feature_loss_weight: 0.1            # Weight for feature matching loss
+
+  # Miscellaneous parameters
+  sample_rate: 16000                  # Audio sample rate (16 kHz)
+  num_mels: 80                        # Number of mel bins
+  hop_length: 256                     # Hop length for STFT
+  win_length: 1024                    # Window length for STFT
+
+  # Other settings
+  checkpoint_interval: 10             # Interval to save checkpoints (in epochs)
+  log_interval: 100                   # Interval to log training progress (in iterations)
+  eval_interval: 200                  # Interval to evaluate model during training (in epochs)
+
+  # Paths
+  training_data_path: "path/to/training_data"  # Path to the training data
+  checkpoint_dir: "path/to/save/checkpoints"   # Path to save checkpoints
+  log_dir: "path/to/logs"                    # Path to save logs
