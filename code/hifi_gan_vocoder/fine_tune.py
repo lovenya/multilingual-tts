@@ -39,7 +39,7 @@ class HiFiGANDataset(torch.utils.data.Dataset):
         audio_path = row['audio_filepath']
         
         # Construct wav path
-        wav_path = os.path.join(self.dataset_dir, audio_path)
+        wav_path = os.path.join(self.dataset_dir, *audio_path.split('/')[1:])
         
         # Construct mel path by:
         # 1. Split the path into parts
