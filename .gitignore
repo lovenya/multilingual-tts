@@ -20,3 +20,4 @@ phonemizer.log
 *.pub.5
 *.pub.1
 
+/checkpoints/
