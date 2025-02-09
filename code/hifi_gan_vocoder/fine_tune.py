@@ -10,20 +10,53 @@ import numpy as np
 from tqdm import tqdm
 import time
 
+import torch
+import numpy as np
+from torch.nn.utils.rnn import pad_sequence
+
+def collate_fn(batch):
+    """
+    Custom collate function for dynamic padding of mel spectrograms and waveforms.
+    """
+    mel_batch = []
+    waveform_batch = []
+
+    # Find the max length of mel spectrogram in the batch
+    max_mel_len = max([mel.size(2) for mel, _ in batch])  # Assumes mel has shape [1, n_mels, length]
+    max_waveform_len = max([waveform.size(1) for _, waveform in batch])  # Assumes waveform shape is [1, length]
+
+    for mel, waveform in batch:
+        # Pad mel spectrograms to max length
+        mel_padded = torch.nn.functional.pad(mel, (0, max_mel_len - mel.size(2)))  # Padding along time axis
+        mel_batch.append(mel_padded)
+
+        # Pad waveform to max length
+        waveform_padded = torch.nn.functional.pad(waveform, (0, max_waveform_len - waveform.size(1)))  # Padding
+        waveform_batch.append(waveform_padded)
+
+    # Stack all mel spectrograms and waveforms into a batch
+    mel_batch = torch.stack(mel_batch, dim=0)  # Shape: [batch_size, 1, n_mels, max_len]
+    waveform_batch = torch.stack(waveform_batch, dim=0)  # Shape: [batch_size, 1, max_len]
+    
+    return mel_batch, waveform_batch
+
+
+
 # DataLoader for training and validation
 class HiFiGANDataset(torch.utils.data.Dataset):
-    def __init__(self, csv_file, mel_dir, dataset_dir):
+    def __init__(self, csv_file, mel_dir, dataset_dir, max_len=800):
         """
-        Dataset for HiFi-GAN training.
+        Dataset for HiFi-GAN training with fixed mel spectrogram size.
         Args:
             csv_file (str): Path to CSV file with metadata
             mel_dir (str): Not used, kept for backward compatibility
             dataset_dir (str): Root directory containing all data
+            max_len (int): Fixed length for mel spectrograms (default: 800)
         """
         self.data = pd.read_csv(csv_file)
         self.dataset_dir = dataset_dir.rstrip('/')  # Remove trailing slash if present
+        self.max_len = max_len
         
-        # Print debug info
         print("\nInitializing HiFiGANDataset:")
         print(f"Dataset directory: {self.dataset_dir}")
         print("First few audio_filepath entries:")
@@ -41,25 +74,24 @@ class HiFiGANDataset(torch.utils.data.Dataset):
         # Construct wav path
         wav_path = os.path.join(self.dataset_dir, *audio_path.split('/')[1:])
         
-        # Construct mel path by:
-        # 1. Split the path into parts
-        path_parts = audio_path.split('/')  # ['dataset', 'Kannada_M', 'wav', 'Ka_M_04513.wav']
-        
-        # 2. Replace 'wav' directory with 'mel_spectrograms' and change extension
-        mel_filename = os.path.splitext(path_parts[-1])[0] + '.npy'  # 'Ka_M_04513.npy'
-        
-        # 3. Construct mel path based on speaker folder
-        mel_path = os.path.join(
-            self.dataset_dir,  # dataset root directory
-            path_parts[1],     # speaker directory (e.g., 'Kannada_M')
-            'mel_spectrograms', # mel_spectrograms folder
-            mel_filename       # mel spectrogram file
-        )
+        # Construct mel path
+        path_parts = audio_path.split('/')
+        mel_filename = os.path.splitext(path_parts[-1])[0] + '.npy'
+        mel_path = os.path.join(self.dataset_dir, path_parts[1], 'mel_spectrograms', mel_filename)
         
         try:
             # Load mel spectrogram
             mel = np.load(mel_path)
             mel = torch.tensor(mel, dtype=torch.float32)
+            
+            # If mel spectrogram is too long, truncate it
+            if mel.shape[2] > self.max_len:
+                mel = mel[:, :, :self.max_len]
+            
+            # If mel spectrogram is too short, pad it
+            if mel.shape[2] < self.max_len:
+                pad_size = self.max_len - mel.shape[2]
+                mel = torch.nn.functional.pad(mel, (0, pad_size))  # Padding along the time dimension
             
             # Load audio waveform
             waveform, _ = torchaudio.load(wav_path)
@@ -71,7 +103,7 @@ class HiFiGANDataset(torch.utils.data.Dataset):
             print(f"Constructed wav path: {wav_path}")
             print(f"Constructed mel path: {mel_path}")
             raise
-     
+    
         
 def fine_tune_hifi_gan(model, train_loader, val_loader, num_epochs=200, checkpoint_dir='./checkpoints'):
     """
@@ -165,15 +197,18 @@ def main():
         train_dataset, 
         batch_size=batch_size, 
         shuffle=True,
-        num_workers=2  # Reduced number of workers for testing
+        num_workers=2,  # Reduced number of workers for testing
+        collate_fn=collate_fn  # Pass the custom collate_fn
     )
-    
+
     val_loader = DataLoader(
         val_dataset, 
         batch_size=batch_size, 
         shuffle=False,
-        num_workers=2
+        num_workers=2,
+        collate_fn=collate_fn  # Pass the custom collate_fn
     )
+
 
     # Fine-tune the model
     fine_tune_hifi_gan(model, train_loader, val_loader)
