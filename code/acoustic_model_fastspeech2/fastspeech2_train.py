@@ -60,9 +60,7 @@ def load_config(config_path):
 
 from espnet2.tasks.tts import TTSTask
 
-from espnet2.tasks.tts import TTSTask
 
-from espnet2.tasks.tts import TTSTask
 
 class CustomTTSTask(TTSTask):
     @classmethod
