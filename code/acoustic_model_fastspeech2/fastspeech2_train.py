@@ -125,9 +125,6 @@ def main(cmd=None):
     # Setup logging
     setup_logging(config)
     
-    # Set random seed
-    # initialize(seed=42)
-    
     # Create dataloaders
     train_loader, val_loader = build_dataloaders(config)
 
@@ -141,33 +138,63 @@ def main(cmd=None):
     # Create optimizer
     optimizer = build_optimizer(model, config)
 
-    # Create trainer
-    trainer = Trainer(
-        model=model,
-        optimizers=[optimizer],
-        schedulers=[],
-        max_epoch=50,
-        train_dataloader=train_loader,
-        valid_dataloader=val_loader,
-        device=device,
-        output_dir=Path(config.checkpoint_dir),
-        resume=args.resume,
-        log_interval=50,
-        checkpoint_save_interval=5
+    # Create training options
+    trainer_options = {
+        "max_epoch": config['train_config'].get('num_epochs', 50),
+        "grad_clip": config['train_config'].get('grad_clip', 1.0),
+        "accum_grad": config['train_config'].get('accum_grad', 1),
+        "no_forward_run": False,
+        "ngpu": 1 if torch.cuda.is_available() else 0,
+        "use_amp": False,
+        "distributed": False,
+        "resume": args.resume,
+        "output_dir": str(Path(config.checkpoint_dir)),
+        "log_interval": config['train_config'].get('log_interval', 50),
+    }
+
+    # Convert dictionary to TrainerOptions dataclass
+    from espnet2.train.trainer import TrainerOptions
+    trainer_options = TrainerOptions(**trainer_options)
+
+    # Create distributed option
+    from espnet2.train.distributed_utils import DistributedOption
+    distributed_option = DistributedOption(
+        distributed=False,
+        ngpu=1 if torch.cuda.is_available() else 0,
+        dist_rank=0,
+        dist_world_size=1,
+        dist_master_addr="localhost",
+        dist_master_port=None,
+        dist_launcher="none",
+        multiprocessing_distributed=False,
     )
 
-    # Start training
-    try:
-        trainer.run()
-    except KeyboardInterrupt:
-        logging.info("Training interrupted by user")
-    except Exception as e:
-        logging.error(f"Training failed with error: {str(e)}")
-        raise
-    finally:
-        # Save the final model
-        trainer.save_checkpoint("final")
-        logging.info(f"Training finished. Model saved to {config.checkpoint_dir}")
+    # Create iterators
+    from espnet2.iterators.sequence_iter_factory import SequenceIterFactory
+    train_iter_factory = SequenceIterFactory(
+        dataset=train_loader.dataset,
+        batch_size=config['train_config'].get('batch_size', 16),
+        collate_fn=train_loader.collate_fn,
+        sampler=train_loader.sampler,
+    )
+    valid_iter_factory = SequenceIterFactory(
+        dataset=val_loader.dataset,
+        batch_size=config['train_config'].get('batch_size', 16),
+        collate_fn=val_loader.collate_fn,
+        shuffle=False,
+    )
+
+    # Run training using class method
+    Trainer.run(
+        model=model,
+        optimizers=[optimizer],
+        schedulers=[None],
+        train_iter_factory=train_iter_factory,
+        valid_iter_factory=valid_iter_factory,
+        plot_attention_iter_factory=None,
+        trainer_options=trainer_options,
+        distributed_option=distributed_option,
+    )
 
 if __name__ == "__main__":
     main()
