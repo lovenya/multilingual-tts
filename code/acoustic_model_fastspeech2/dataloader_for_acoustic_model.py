@@ -141,7 +141,16 @@ class TTSDataset(Dataset):
         language_id = torch.tensor(self.language_map[language], dtype=torch.long)
         speaker_id = torch.tensor(self.speaker_map[speaker], dtype=torch.long)
         
-        return phoneme_ids, mel_spec, pitch, energy, speaker_id, language_id
+        phoneme_ids = phoneme_ids.unsqueeze(0)  # (B, T)
+        speaker_ids = speaker_id.unsqueeze(1).expand(-1, phoneme_ids.size(1))  # (B, T)
+        language_ids = language_id.unsqueeze(1).expand(-1, phoneme_ids.size(1))  # (B, T)
+
+        print(f"phoneme_ids shape: {phoneme_ids.shape}")
+        print(f"speaker_ids shape: {speaker_ids.shape}")
+        print(f"language_ids shape: {language_ids.shape}")
+
+        return phoneme_ids, mel_spec, pitch, energy, speaker_ids, language_ids
+
 
 def dynamic_collate_fn(batch):
     """
@@ -170,7 +179,12 @@ def dynamic_collate_fn(batch):
     speaker_ids = torch.stack(speaker_ids)
     language_ids = torch.stack(language_ids)
     
-    return phoneme_seqs_padded, mel_specs_padded, pitches_padded, energies_padded, speaker_ids, language_ids
+    # Generate mask for padded phoneme sequences
+    phoneme_mask = phoneme_seqs_padded != 0  # True for non-padded tokens
+    mel_mask = mel_specs_padded.sum(dim=1) != 0  # True for non-padded mel-spectrogram entries
+    
+    return phoneme_seqs_padded, mel_specs_padded, pitches_padded, energies_padded, speaker_ids, language_ids, phoneme_mask, mel_mask
+
 
 def build_phoneme_vocab():
     fixed_inventory = get_fixed_inventory()  # Your function from the inventory file

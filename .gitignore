@@ -19,5 +19,4 @@ phonemizer.log
 *.deb
 *.pub.5
 *.pub.1
-
 /checkpoints/

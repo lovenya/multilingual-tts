@@ -25,6 +25,15 @@ postnet_filts: 5                   # Filter size in the postnet
 # Output specification.
 mel_dim: 80                        # Number of mel-spectrogram channels
 
+# Training-related parameters (added missing section)
+train_config:
+  batch_size: 8                    # Batch size for training
+  num_epochs: 50                   # Number of epochs to train for
+  log_interval: 50                 # How often to log training progress
+  checkpoint_save_interval: 5     # How often to save checkpoints (in epochs)
+
 # Additional parameters (if needed)
 # Path to pretrained encoder weights
-pretrained_encoder_path: "checkpoints/exp/tts_train_fastspeech2_raw_phn_tacotron_g2p_en_no_space/train.loss.ave_5best.pth"
+# pretrained_encoder_path: "checkpoints/exp/tts_train_fastspeech2_raw_phn_tacotron_g2p_en_no_space/train.loss.ave_5best.pth"
+
+checkpoint_dir: "acoustic_model_fastspeech2/checkpoints"      # Directory to save checkpoints
