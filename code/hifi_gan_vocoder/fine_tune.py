@@ -16,31 +16,32 @@ from torch.nn.utils.rnn import pad_sequence
 
 def collate_fn(batch):
     """
-    Custom collate function for dynamic padding of mel spectrograms and waveforms.
+    Custom collate function for dynamic padding/trimming of mel spectrograms and waveforms.
+    Assumes:
+      - Each mel spectrogram has shape [n_mels, 800]
+      - Expected waveform length is 800 * 256 = 204800 samples
     """
     mel_batch = []
     waveform_batch = []
+    expected_wave_len = 800 * 256  # 204800
 
-    # Find the max length of mel spectrogram in the batch
-    max_mel_len = max([mel.size(2) for mel, _ in batch])  # Assumes mel has shape [1, n_mels, length]
-    max_waveform_len = max([waveform.size(1) for _, waveform in batch])  # Assumes waveform shape is [1, length]
-
+    # For mel, they are already padded to max_len (800) in __getitem__
     for mel, waveform in batch:
-        # Pad mel spectrograms to max length
-        mel_padded = torch.nn.functional.pad(mel, (0, max_mel_len - mel.size(2)))  # Padding along time axis
-        mel_batch.append(mel_padded)
+        mel_batch.append(mel)
+        
+        # Adjust waveform length:
+        current_len = waveform.size(1)
+        if current_len > expected_wave_len:
+            waveform = waveform[:, :expected_wave_len]
+        elif current_len < expected_wave_len:
+            waveform = torch.nn.functional.pad(waveform, (0, expected_wave_len - current_len))
+        
+        waveform_batch.append(waveform)
 
-        # Pad waveform to max length
-        waveform_padded = torch.nn.functional.pad(waveform, (0, max_waveform_len - waveform.size(1)))  # Padding
-        waveform_batch.append(waveform_padded)
-
-    # Stack all mel spectrograms and waveforms into a batch
-    mel_batch = torch.stack(mel_batch, dim=0)  # Shape: [batch_size, 1, n_mels, max_len]
-    waveform_batch = torch.stack(waveform_batch, dim=0)  # Shape: [batch_size, 1, max_len]
+    mel_batch = torch.stack(mel_batch, dim=0)         # Shape: [batch_size, n_mels, 800]
+    waveform_batch = torch.stack(waveform_batch, dim=0) # Shape: [batch_size, 1, 204800]
     
     return mel_batch, waveform_batch
-
-
 
 # DataLoader for training and validation
 class HiFiGANDataset(torch.utils.data.Dataset):
@@ -84,14 +85,20 @@ class HiFiGANDataset(torch.utils.data.Dataset):
             mel = np.load(mel_path)
             mel = torch.tensor(mel, dtype=torch.float32)
             
-            # If mel spectrogram is too long, truncate it
-            if mel.shape[2] > self.max_len:
-                mel = mel[:, :, :self.max_len]
+            # Reshape mel to remove channel dimension if present
+            if len(mel.shape) == 3 and mel.size(0) == 1:
+                mel = mel.squeeze(0)  # Remove channel dimension
+            elif len(mel.shape) == 2:
+                mel = mel  # Already in correct shape
+            else:
+                raise ValueError(f"Unexpected mel spectrogram shape: {mel.shape}")
             
-            # If mel spectrogram is too short, pad it
-            if mel.shape[2] < self.max_len:
-                pad_size = self.max_len - mel.shape[2]
-                mel = torch.nn.functional.pad(mel, (0, pad_size))  # Padding along the time dimension
+            # Handle length constraints
+            if mel.size(1) > self.max_len:
+                mel = mel[:, :self.max_len]
+            elif mel.size(1) < self.max_len:
+                pad_size = self.max_len - mel.size(1)
+                mel = torch.nn.functional.pad(mel, (0, pad_size))
             
             # Load audio waveform
             waveform, _ = torchaudio.load(wav_path)
@@ -102,8 +109,8 @@ class HiFiGANDataset(torch.utils.data.Dataset):
             print(f"Audio path from CSV: {audio_path}")
             print(f"Constructed wav path: {wav_path}")
             print(f"Constructed mel path: {mel_path}")
+            print(f"Mel shape before processing: {mel.shape if 'mel' in locals() else 'Not loaded'}")
             raise
-    
         
 def fine_tune_hifi_gan(model, train_loader, val_loader, num_epochs=200, checkpoint_dir='./checkpoints'):
     """
