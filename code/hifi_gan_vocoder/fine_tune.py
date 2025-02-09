@@ -127,7 +127,7 @@ def fine_tune_hifi_gan(model, train_loader, val_loader, num_epochs=200, checkpoi
                 mel, waveform = mel.cuda(), waveform.cuda()
 
                 # Forward pass through HiFi-GAN generator
-                generated_waveform = model.generator(mel)
+                generated_waveform = model.generator(x=mel)
 
                 # Calculate loss
                 loss = criterion(generated_waveform, waveform)
@@ -153,7 +153,7 @@ def fine_tune_hifi_gan(model, train_loader, val_loader, num_epochs=200, checkpoi
             with torch.no_grad():
                 for mel, waveform in pbar_val:
                     mel, waveform = mel.cuda(), waveform.cuda()
-                    generated_waveform = model.generator(mel)
+                    generated_waveform = model.generator(x=mel)
                     val_loss += criterion(generated_waveform, waveform).item()
 
         val_loss /= len(val_loader)
