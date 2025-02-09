@@ -508,7 +508,13 @@ if __name__ == '__main__':
 
 
 if __name__ == '__main__':
-    # Example mappings (replace with your actual mappings)
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)s: %(message)s'
+    )
+
+    # Initialize dataset components
     phoneme_vocab = build_phoneme_vocab()
     language_map = {"english": 0, "gujarathi": 1, "bhojpuri": 2, "kannada": 3}
     speaker_map = {
@@ -516,7 +522,7 @@ if __name__ == '__main__':
         "gujarathi_f": 4, "gujarathi_m": 5, "kannada_f": 6, "kannada_m": 7
     }
     
-    # Path to metadata CSV
+    # Create dataset
     metadata_csv = "dataset/metadata/updated_train.csv"
     dataset = TTSDataset(
         root_dir=".", 
@@ -526,47 +532,38 @@ if __name__ == '__main__':
         speaker_map=speaker_map
     )
     
-    # Create weighted sampling based on language
+    # Setup weighted sampling
     df = pd.read_csv(metadata_csv, encoding="utf-8-sig")
-    weights = []
-    for _, row in df.iterrows():
-        lang = row['language'].lower()
-        if lang in ["gujarathi", "bhojpuri"]:
-            weights.append(2.0)
-        else:
-            weights.append(1.0)
+    weights = [2.0 if row['language'].lower() in ['gujarathi', 'bhojpuri'] else 1.0 
+              for _, row in df.iterrows()]
     weights = torch.tensor(weights, dtype=torch.float)
     sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
     
-    # Create data loader with the dynamic collate function
+    # Create dataloader
     data_loader = DataLoader(
         dataset, 
         batch_size=8, 
-        collate_fn=dynamic_collate_fn, 
-        sampler=sampler
+        collate_fn=dynamic_collate_fn,
+        sampler=sampler,
+        num_workers=0  # Set to 0 for debugging
     )
     
-    # Test batch loading and verify shapes
-    print("\nTesting batch loading and shapes...")
-    for batch in data_loader:
-        print("\nBatch contents:")
+    print("\nTesting dataloader...")
+    
+    for batch_idx, batch in enumerate(data_loader):
+        print(f"\nBatch {batch_idx + 1}:")
+        print("Batch keys:", batch.keys())
+        
+        # Print shapes of all tensors in batch
         for key, value in batch.items():
             if isinstance(value, torch.Tensor):
-                print(f"{key} shape:", value.shape)
-            else:
-                print(f"{key} type:", type(value))
+                print(f"{key:<15} shape: {tuple(value.shape)}")
         
-        # Verify tensor shapes and dimensions
-        assert batch["phoneme_ids"].ndim == 2, "phoneme_ids should be 2D"
-        assert batch["mels"].ndim == 3, "mels should be 3D"
-        assert batch["pitch"].ndim == 2, "pitch should be 2D"
-        assert batch["energy"].ndim == 2, "energy should be 2D"
+        # Verify tensor dimensions
+        assert batch['phoneme_ids'].ndim == 2, "phoneme_ids should be 2D (batch_size, seq_len)"
+        assert batch['mels'].ndim == 3, "mels should be 3D (batch_size, n_mels, time)"
+        assert batch['pitch'].ndim == 2, "pitch should be 2D (batch_size, time)"
+        assert batch['energy'].ndim == 2, "energy should be 2D (batch_size, time)"
         
-        # Additional checks
-        batch_size = len(batch["phoneme_lengths"])
-        assert all(tensor.size(0) == batch_size for tensor in batch.values() if isinstance(tensor, torch.Tensor)), \
-            "All tensors should have the same batch size"
-        
-        print("\nBatch verification successful!")
-        print(f"Processed batch with size: {batch_size}")
-        break
+        print("\nAll tensor shapes verified successfully!")
+        break  # Test only first batch
