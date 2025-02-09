@@ -16,6 +16,9 @@ from fastspeech2_model import FastSpeech2MultiLingual
 from dataloader_for_acoustic_model import TTSDataset, build_phoneme_vocab, dynamic_collate_fn
 import yaml
 import os
+import tensorboard
+
+
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
@@ -138,25 +141,49 @@ def main(cmd=None):
     # Create optimizer
     optimizer = build_optimizer(model, config)
 
-    # Create training options
     trainer_options = {
-        "max_epoch": config['train_config'].get('num_epochs', 50),
-        "grad_clip": config['train_config'].get('grad_clip', 1.0),
-        "accum_grad": config['train_config'].get('accum_grad', 1),
-        "no_forward_run": False,
-        "ngpu": 1 if torch.cuda.is_available() else 0,
-        "use_amp": False,
-        "distributed": False,
-        "resume": args.resume,
-        "output_dir": str(Path(config.checkpoint_dir)),
-        "log_interval": config['train_config'].get('log_interval', 50),
+    "max_epoch": config['train_config'].get('num_epochs', 50),
+    "grad_clip": config['train_config'].get('grad_clip', 1.0),
+    "accum_grad": config['train_config'].get('accum_grad', 1),
+    "no_forward_run": False,
+    "ngpu": 1 if torch.cuda.is_available() else 0,
+    "use_amp": False,
+    "output_dir": str(Path(config.checkpoint_dir)),
+    "log_interval": config['train_config'].get('log_interval', 50),
+    "resume": args.resume,
+    # Add the missing required parameters
+    "train_dtype": "float32",  # Added
+    "grad_noise": False,       # Added
+    "grad_clip_type": 2.0,    # Added
+    # Rest of the parameters
+    "use_matplotlib": False,
+    "use_tensorboard": True,
+    # "tensorboard_dir": str(Path(config.checkpoint_dir) / "tensorboard"),
+    "use_wandb": False,
+    "save_strategy": "epoch",
+    "seed": 0,
+    "patience": None,
+    "keep_nbest_models": 5,
+    "nbest_averaging_interval": 0,
+    "early_stopping_criterion": [],
+    "best_model_criterion": [],
+    "val_scheduler_criterion": [],
+    "unused_parameters": False,
+    "wandb_model_log_interval": 0,
+    "create_graph_in_tensorboard": False,
+    "use_adapter": False,
+    "adapter": "",
+    "sharded_ddp": False
     }
-
+    
+    # os.makedirs(trainer_options["tensorboard_dir"], exist_ok=True)
+    
+    
     # Convert dictionary to TrainerOptions dataclass
     from espnet2.train.trainer import TrainerOptions
     trainer_options = TrainerOptions(**trainer_options)
 
-    # Create distributed option
+    # Create distributed option (kept separate from trainer options)
     from espnet2.train.distributed_utils import DistributedOption
     distributed_option = DistributedOption(
         distributed=False,
@@ -171,6 +198,51 @@ def main(cmd=None):
 
     # Create iterators
     from espnet2.iterators.sequence_iter_factory import SequenceIterFactory
+    
+    batch_size = config['train_config'].get('batch_size', 16)
+    train_batches = []
+    for i in range(0, len(train_loader.dataset), batch_size):
+        batch_indices = list(range(i, min(i + batch_size, len(train_loader.dataset))))
+        train_batches.append(batch_indices)
+
+    # Create batches for validation data
+    val_batches = []
+    for i in range(0, len(val_loader.dataset), batch_size):
+        batch_indices = list(range(i, min(i + batch_size, len(val_loader.dataset))))
+        val_batches.append(batch_indices)
+
+    # Create iterators with correct parameters
+    train_iter_factory = SequenceIterFactory(
+        dataset=train_loader.dataset,
+        batches=train_batches,
+        collate_fn=dynamic_collate_fn,
+        num_workers=4,
+        seed=0,
+        shuffle=True,
+        pin_memory=True
+    )
+
+    valid_iter_factory = SequenceIterFactory(
+        dataset=val_loader.dataset,
+        batches=val_batches,
+        collate_fn=dynamic_collate_fn,
+        num_workers=4,
+        seed=0,
+        shuffle=False,
+        pin_memory=True
+    )
+
+    # Run training using class method
+    Trainer.run(
+        model=model,
+        optimizers=[optimizer],
+        schedulers=[None],
+        train_iter_factory=train_iter_factory,
+        valid_iter_factory=valid_iter_factory,
+        plot_attention_iter_factory=None,
+        trainer_options=trainer_options,
+        distributed_option=distributed_option,
+    )
     train_iter_factory = SequenceIterFactory(
         dataset=train_loader.dataset,
         batch_size=config['train_config'].get('batch_size', 16),

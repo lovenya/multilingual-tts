@@ -106,51 +106,39 @@ class TTSDataset(Dataset):
         return len(self.metadata)
 
     def __getitem__(self, idx):
+        # Get the row from metadata
         row = self.metadata.iloc[idx]
         
-        # Base filename (without extension)
-        audio_filepath = row['audio_filepath']
-        file_id = os.path.splitext(os.path.basename(audio_filepath))[0]
-        
+        # Get speaker and language IDs
+        speaker = row['speaker_id'].lower()
         language = row['language'].lower()
-        speaker = row['speaker_id'].lower()  # e.g., "english_f"
-        folder = row['speaker_id']  # Speaker/language folder name
-        
-        # Construct file paths
-        sample_folder = os.path.join(self.root_dir, folder)
-        phoneme_path = os.path.join(sample_folder, "phonemes", f"{file_id}.txt")
-        wav_path = os.path.join(sample_folder, "wav", f"{file_id}.wav")
-        pitch_path = os.path.join(sample_folder, "pitches", f"{file_id}.npy")
-        energy_path = os.path.join(sample_folder, "energies", f"{file_id}.npy")
-        
-        # Load phoneme sequence (assumes space-separated tokens)
-        with open(phoneme_path, 'r', encoding='utf-8') as f:
-            phoneme_seq_str = f.read().strip()
-        phoneme_tokens = phoneme_seq_str.split()
-        phoneme_ids = [self.phoneme_vocab.get(token, self.phoneme_vocab.get("<unk>", 0)) for token in phoneme_tokens]
-        phoneme_ids = torch.tensor(phoneme_ids, dtype=torch.long)
-        
-        # Compute mel-spectrogram on the fly
-        mel_spec = compute_mel(wav_path, sr=self.sr)
-        
-        # Load pitch and energy targets from .npy files
-        pitch = torch.tensor(np.load(pitch_path), dtype=torch.float)
-        energy = torch.tensor(np.load(energy_path), dtype=torch.float)
-        
-        # Get language and speaker IDs
-        language_id = torch.tensor(self.language_map[language], dtype=torch.long)
         speaker_id = torch.tensor(self.speaker_map[speaker], dtype=torch.long)
+        language_id = torch.tensor(self.language_map[language], dtype=torch.long)
         
-        phoneme_ids = phoneme_ids.unsqueeze(0)  # (B, T)
-        speaker_ids = speaker_id.unsqueeze(1).expand(-1, phoneme_ids.size(1))  # (B, T)
-        language_ids = language_id.unsqueeze(1).expand(-1, phoneme_ids.size(1))  # (B, T)
-
-        print(f"phoneme_ids shape: {phoneme_ids.shape}")
-        print(f"speaker_ids shape: {speaker_ids.shape}")
-        print(f"language_ids shape: {language_ids.shape}")
-
-        return phoneme_ids, mel_spec, pitch, energy, speaker_ids, language_ids
-
+        # Get phoneme sequence
+        phoneme_sequence = row['phoneme_sequence']  # Assuming this column exists
+        phoneme_ids = self.convert_phonemes_to_ids(phoneme_sequence)
+        
+        # Get mel spectrogram
+        mel_path = os.path.join(self.root_dir, row['mel_path'])
+        mel = torch.load(mel_path)
+        
+        # Get duration, pitch, energy features if available
+        duration = torch.load(os.path.join(self.root_dir, row['duration_path']))
+        pitch = torch.load(os.path.join(self.root_dir, row['pitch_path']))
+        energy = torch.load(os.path.join(self.root_dir, row['energy_path']))
+        
+        return {
+            "phoneme_ids": phoneme_ids,  # (T,)
+            "speaker_id": speaker_id,    # (1,)
+            "language_id": language_id,   # (1,)
+            "mel": mel,                  # (80, T)
+            "duration": duration,        # (T,)
+            "pitch": pitch,              # (T,)
+            "energy": energy,            # (T,)
+            "phoneme_length": torch.tensor(len(phoneme_ids)),
+            "mel_length": torch.tensor(mel.size(1))
+        }
 
 def dynamic_collate_fn(batch):
     """

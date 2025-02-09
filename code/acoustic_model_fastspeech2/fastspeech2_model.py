@@ -1,20 +1,12 @@
 import torch
 import torch.nn as nn
 from espnet2.tts.fastspeech2.fastspeech2 import FastSpeech2 as ESPnetFastSpeech2
+from espnet2.train.abs_espnet_model import AbsESPnetModel  # Import the base model
 from embeddings import Embeddings
 from predictors import DurationPredictor, PitchPredictor, EnergyPredictor
 
-class FastSpeech2MultiLingual(nn.Module):
+class FastSpeech2MultiLingual(AbsESPnetModel):  # Inherit from AbsESPnetModel
     def __init__(self, config):
-        """
-        A multilingual FastSpeech2 model that uses custom embeddings and predictors,
-        while leveraging ESPnet2's FastSpeech2 encoder as the acoustic backbone.
-
-        Args:
-            config (dict): Configuration dictionary containing hyperparameters.
-                           Must include key "pretrained_encoder_path" for loading the
-                           pretrained encoder checkpoint.
-        """
         super(FastSpeech2MultiLingual, self).__init__()
 
         # Custom embeddings for phonemes, languages, and speakers.
@@ -104,3 +96,64 @@ class FastSpeech2MultiLingual(nn.Module):
         mel_out = self.mel_linear(encoder_output)
 
         return mel_out, pred_duration, pred_pitch, pred_energy
+
+    def compute_loss(self, mel_out, pred_duration, pred_pitch, pred_energy, mel, durations, pitch, energy):
+        """
+        Compute the loss for the model, which should be used in training.
+        Args:
+            mel_out: Predicted mel-spectrogram.
+            pred_duration: Predicted duration values.
+            pred_pitch: Predicted pitch values.
+            pred_energy: Predicted energy values.
+            mel: Ground-truth mel-spectrogram.
+            durations: Ground-truth durations.
+            pitch: Ground-truth pitch values.
+            energy: Ground-truth energy values.
+
+        Returns:
+            loss: The total loss for the batch.
+        """
+        mel_loss = nn.MSELoss()(mel_out, mel)
+        duration_loss = nn.MSELoss()(pred_duration, durations)
+        pitch_loss = nn.MSELoss()(pred_pitch, pitch)
+        energy_loss = nn.MSELoss()(pred_energy, energy)
+
+        total_loss = mel_loss + duration_loss + pitch_loss + energy_loss
+        return total_loss
+
+    def compute_metrics(self, mel_out, pred_duration, pred_pitch, pred_energy, mel, durations, pitch, energy):
+        """
+        Compute additional metrics for evaluation, if necessary.
+        """
+        # For simplicity, we return None here; you can add more evaluation metrics as needed.
+        return None
+    
+    def collect_feats(self, phoneme_seq, language_ids, speaker_ids, durations=None, pitch=None, energy=None):
+        """
+        Collect features from the input data that are passed to the model.
+        Args:
+            phoneme_seq: The phoneme sequence (B, T).
+            language_ids: The language IDs (B, T) or (B).
+            speaker_ids: The speaker IDs (B).
+            durations: Ground-truth duration values (optional).
+            pitch: Ground-truth pitch values (optional).
+            energy: Ground-truth energy values (optional).
+
+        Returns:
+            A dictionary with the features to be passed to the model.
+        """
+        # Collect embeddings for phonemes, languages, and speakers.
+        features = {
+            "phoneme_seq": phoneme_seq,
+            "language_ids": language_ids,
+            "speaker_ids": speaker_ids
+        }
+
+        if durations is not None:
+            features["durations"] = durations
+        if pitch is not None:
+            features["pitch"] = pitch
+        if energy is not None:
+            features["energy"] = energy
+
+        return features
