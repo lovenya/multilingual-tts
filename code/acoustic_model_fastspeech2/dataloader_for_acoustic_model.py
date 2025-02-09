@@ -162,14 +162,11 @@ def estimate_durations(mel_length, num_phonemes):
     Args:
         mel_length (int): Length of mel spectrogram in frames
         num_phonemes (int): Number of phonemes in the sequence
-    
+        
     Returns:
         torch.Tensor: Estimated durations for each phoneme
     """
-    # Add extra frames for start and end tokens
-    num_phonemes += 2  # For <s> and </s> tokens
-    
-    # Calculate base duration and remainder
+    # Base duration calculation
     base_duration = mel_length // num_phonemes
     remainder = mel_length % num_phonemes
     
@@ -183,50 +180,36 @@ def estimate_durations(mel_length, num_phonemes):
     
     return durations
 
-
 def safe_torch_load(filepath):
-    """Safely load torch files with backwards compatibility."""
+    """Safely load numpy or torch files."""
     try:
-        # Try different loading methods
-        try:
-            # Method 1: Standard loading
+        # Try numpy loading first (for .npy files)
+        if filepath.endswith('.npy'):
+            return torch.from_numpy(np.load(filepath))
+        # Try torch loading
+        else:
             return torch.load(filepath, map_location='cpu')
-        except:
-            # Method 2: Legacy loading
-            return torch.load(filepath, map_location='cpu', pickle_module=pickle)
     except Exception as e:
         logging.error(f"Failed to load file {filepath}: {str(e)}")
-        # Return a default tensor if loading fails
-        return torch.zeros(1)  # Return dummy tensor on failure
-    
+        return torch.ones(1)  # Return dummy tensor on failure   
     
 class TTSDataset(Dataset):
     def __init__(self, root_dir, metadata_csv, phoneme_vocab, language_map, speaker_map, sr=22050):
-        """
-        Args:
-            root_dir (str): Root directory of the dataset.
-            metadata_csv (str): Path to the CSV file containing metadata.
-            phoneme_vocab (dict): Mapping from phoneme tokens to indices.
-            language_map (dict): Mapping from language names to integer IDs.
-            speaker_map (dict): Mapping from speaker IDs (e.g., "english_f", etc.) to integer IDs.
-            sr (int): Sampling rate.
-        """
+        """Initialize the dataset."""
         self.root_dir = root_dir
         self.metadata = pd.read_csv(metadata_csv, encoding="utf-8-sig")
         self.phoneme_vocab = phoneme_vocab
-        # self.pad_id = 0
         self.language_map = language_map
         self.speaker_map = speaker_map
         self.sr = sr
         
+        # Audio processing parameters
         self.n_fft = 1024
         self.hop_length = 256
         self.n_mels = 80
         
-        
         # Count unknown phonemes for logging
         self.unknown_phonemes = set()
-        
         
         # Create mel transform
         self.mel_transform = torchaudio.transforms.MelSpectrogram(
@@ -236,36 +219,14 @@ class TTSDataset(Dataset):
             n_mels=self.n_mels
         )
         
-        
-        def compute_mel(self, wav_path):
-            """Compute mel-spectrogram on the fly."""
-            waveform, sample_rate = torchaudio.load(wav_path)
-            if sample_rate != self.sr:
-                resampler = torchaudio.transforms.Resample(
-                    orig_freq=sample_rate, 
-                    new_freq=self.sr
-                )
-                waveform = resampler(waveform)
-            
-            # Convert to mono if stereo
-            if waveform.size(0) > 1:
-                waveform = waveform.mean(dim=0, keepdim=True)
-                
-            mel_spec = self.mel_transform(waveform)  # (1, n_mels, T)
-            return mel_spec.squeeze(0)  # (n_mels, T)
-
-        
         # Validate required columns
         required_columns = ['speaker_id', 'language', 'phoneme_sequence',
-                            'pitch_filepath', 'energy_filepath']
+                          'pitch_filepath', 'energy_filepath']
         missing_columns = [col for col in required_columns if col not in self.metadata.columns]
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
-            
-        logging.info(f"Loaded dataset with {len(self.metadata)} samples")
-
         
-         # Validate vocabulary
+        # Validate vocabulary
         if "<unk>" not in self.phoneme_vocab:
             raise ValueError("Phoneme vocabulary must contain <unk> token")
         if "<pad>" not in self.phoneme_vocab:
@@ -276,6 +237,46 @@ class TTSDataset(Dataset):
         
         logging.info(f"Initialized dataset with {len(self.metadata)} samples")
         logging.info(f"Vocabulary size: {len(self.phoneme_vocab)}")
+        
+        
+        invalid_files = []
+        for _, row in self.metadata.iterrows():
+            wav_path = os.path.join(root_dir, row['audio_filepath'])
+            pitch_path = os.path.join(root_dir, row['pitch_filepath'])
+            energy_path = os.path.join(root_dir, row['energy_filepath'])
+            
+            if not os.path.exists(wav_path):
+                invalid_files.append(wav_path)
+            if not os.path.exists(pitch_path):
+                invalid_files.append(pitch_path)
+            if not os.path.exists(energy_path):
+                invalid_files.append(energy_path)
+        
+        if invalid_files:
+            logging.warning(f"Found {len(invalid_files)} invalid files:")
+            for f in invalid_files[:10]:  # Show first 10 invalid files
+                logging.warning(f"  {f}")
+            if len(invalid_files) > 10:
+                logging.warning(f"  ... and {len(invalid_files) - 10} more")
+        
+        
+    
+    def compute_mel(self, wav_path):
+        """Compute mel-spectrogram on the fly."""
+        waveform, sample_rate = torchaudio.load(wav_path)
+        if sample_rate != self.sr:
+            resampler = torchaudio.transforms.Resample(
+                orig_freq=sample_rate, 
+                new_freq=self.sr
+            )
+            waveform = resampler(waveform)
+        
+        # Convert to mono if stereo
+        if waveform.size(0) > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
+            
+        mel_spec = self.mel_transform(waveform)  # (1, n_mels, T)
+        return mel_spec.squeeze(0)  # (n_mels, T)
 
     def convert_phonemes_to_ids(self, phoneme_sequence):
         """Convert phoneme sequence to IDs with better unknown phoneme handling."""
@@ -380,7 +381,7 @@ class TTSDataset(Dataset):
 
 
 def dynamic_collate_fn(batch):
-    """Collate function for dynamic batch sizes."""
+    """Collate function for dynamic batch sizes with proper padding."""
     # Get max lengths
     max_phoneme_len = max(x["phoneme_length"] for x in batch)
     max_mel_len = max(x["mel_length"] for x in batch)
@@ -411,9 +412,18 @@ def dynamic_collate_fn(batch):
         speaker_ids[i] = item["speaker_id"]
         language_ids[i] = item["language_id"]
         mels[i, :, :mel_len] = item["mel"]
-        durations[i, :phoneme_len] = item["duration"]
-        pitch[i, :mel_len] = item["pitch"]
-        energy[i, :mel_len] = item["energy"]
+        
+        # Handle duration padding correctly
+        dur_len = len(item["duration"])
+        if dur_len > max_phoneme_len:
+            # Truncate if longer
+            durations[i, :] = item["duration"][:max_phoneme_len]
+        else:
+            # Pad if shorter
+            durations[i, :dur_len] = item["duration"]
+            
+        pitch[i, :mel_len] = item["pitch"][:mel_len]
+        energy[i, :mel_len] = item["energy"][:mel_len]
     
     return {
         "phoneme_ids": phoneme_ids,
@@ -426,6 +436,22 @@ def dynamic_collate_fn(batch):
         "phoneme_lengths": torch.tensor(phoneme_lengths),
         "mel_lengths": torch.tensor(mel_lengths)
     }
+# def compute_mel(self, wav_path):
+#     """Compute mel-spectrogram on the fly."""
+#     waveform, sample_rate = torchaudio.load(wav_path)
+#     if sample_rate != self.sr:
+#         resampler = torchaudio.transforms.Resample(
+#             orig_freq=sample_rate, 
+#             new_freq=self.sr
+#         )
+#         waveform = resampler(waveform)
+    
+#     # Convert to mono if stereo
+#     if waveform.size(0) > 1:
+#         waveform = waveform.mean(dim=0, keepdim=True)
+        
+#     mel_spec = self.mel_transform(waveform)  # (1, n_mels, T)
+#     return mel_spec.squeeze(0)  # (n_mels, T)
 
 
 # def build_phoneme_vocab():
@@ -457,7 +483,7 @@ if __name__ == '__main__':
     
     # Path to metadata CSV (update path as needed)
     metadata_csv = "dataset/metadata/updated_train.csv"
-    dataset = TTSDataset(root_dir="dataset", metadata_csv=metadata_csv,
+    dataset = TTSDataset(root_dir=".", metadata_csv=metadata_csv,
                          phoneme_vocab=phoneme_vocab, language_map=language_map, speaker_map=speaker_map)
     
     # Create weighted sampling based on language.
@@ -478,4 +504,69 @@ if __name__ == '__main__':
         phoneme_seqs, mel_specs, pitches, energies, speaker_ids, language_ids = batch
         print("Phoneme batch shape:", phoneme_seqs.shape)
         print("Mel-spectrogram batch shape:", mel_specs.shape)
+        break
+
+
+if __name__ == '__main__':
+    # Example mappings (replace with your actual mappings)
+    phoneme_vocab = build_phoneme_vocab()
+    language_map = {"english": 0, "gujarathi": 1, "bhojpuri": 2, "kannada": 3}
+    speaker_map = {
+        "english_f": 0, "english_m": 1, "bhojpuri_f": 2, "bhojpuri_m": 3,
+        "gujarathi_f": 4, "gujarathi_m": 5, "kannada_f": 6, "kannada_m": 7
+    }
+    
+    # Path to metadata CSV
+    metadata_csv = "dataset/metadata/updated_train.csv"
+    dataset = TTSDataset(
+        root_dir=".", 
+        metadata_csv=metadata_csv,
+        phoneme_vocab=phoneme_vocab, 
+        language_map=language_map, 
+        speaker_map=speaker_map
+    )
+    
+    # Create weighted sampling based on language
+    df = pd.read_csv(metadata_csv, encoding="utf-8-sig")
+    weights = []
+    for _, row in df.iterrows():
+        lang = row['language'].lower()
+        if lang in ["gujarathi", "bhojpuri"]:
+            weights.append(2.0)
+        else:
+            weights.append(1.0)
+    weights = torch.tensor(weights, dtype=torch.float)
+    sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+    
+    # Create data loader with the dynamic collate function
+    data_loader = DataLoader(
+        dataset, 
+        batch_size=8, 
+        collate_fn=dynamic_collate_fn, 
+        sampler=sampler
+    )
+    
+    # Test batch loading and verify shapes
+    print("\nTesting batch loading and shapes...")
+    for batch in data_loader:
+        print("\nBatch contents:")
+        for key, value in batch.items():
+            if isinstance(value, torch.Tensor):
+                print(f"{key} shape:", value.shape)
+            else:
+                print(f"{key} type:", type(value))
+        
+        # Verify tensor shapes and dimensions
+        assert batch["phoneme_ids"].ndim == 2, "phoneme_ids should be 2D"
+        assert batch["mels"].ndim == 3, "mels should be 3D"
+        assert batch["pitch"].ndim == 2, "pitch should be 2D"
+        assert batch["energy"].ndim == 2, "energy should be 2D"
+        
+        # Additional checks
+        batch_size = len(batch["phoneme_lengths"])
+        assert all(tensor.size(0) == batch_size for tensor in batch.values() if isinstance(tensor, torch.Tensor)), \
+            "All tensors should have the same batch size"
+        
+        print("\nBatch verification successful!")
+        print(f"Processed batch with size: {batch_size}")
         break
