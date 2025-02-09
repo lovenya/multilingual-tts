@@ -14,17 +14,20 @@ import time
 class HiFiGANDataset(torch.utils.data.Dataset):
     def __init__(self, csv_file, mel_dir, dataset_dir):
         """
-        Dataset for HiFi-GAN training. Loads mel-spectrograms and raw waveforms
-        based on the CSV metadata and directory structure.
-        
-        Parameters:
-        - csv_file: Path to the CSV file with metadata (e.g., updated_train.csv)
-        - mel_dir: Directory containing mel-spectrograms (.npy files)
-        - dataset_dir: Root directory containing subfolders for each speaker
+        Dataset for HiFi-GAN training.
+        Args:
+            csv_file (str): Path to CSV file with metadata
+            mel_dir (str): Not used, kept for backward compatibility
+            dataset_dir (str): Root directory containing all data
         """
         self.data = pd.read_csv(csv_file)
-        self.mel_dir = mel_dir
-        self.dataset_dir = dataset_dir
+        self.dataset_dir = dataset_dir.rstrip('/')  # Remove trailing slash if present
+        
+        # Print debug info
+        print("\nInitializing HiFiGANDataset:")
+        print(f"Dataset directory: {self.dataset_dir}")
+        print("First few audio_filepath entries:")
+        print(self.data['audio_filepath'].head())
 
     def __len__(self):
         return len(self.data)
@@ -32,22 +35,44 @@ class HiFiGANDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
         
-        # Get the speaker folder and audio file path from the metadata
-        speaker_folder = row['speaker_id']  # Assuming speaker_id is the folder name
-        wav_path = os.path.join(self.dataset_dir, speaker_folder, 'wav', row['audio_filepath'])
+        # Get the audio filepath from CSV
+        audio_path = row['audio_filepath']
         
-        # Construct the mel spectrogram file path
-        mel_path = os.path.join(self.dataset_dir, speaker_folder, 'mel_spectrograms', row['audio_filepath'].replace('.wav', '.npy'))
-
-        # Load mel spectrogram and waveform
-        mel = np.load(mel_path)
-        mel = torch.tensor(mel, dtype=torch.float32)
+        # Construct wav path
+        wav_path = os.path.join(self.dataset_dir, audio_path)
         
-        waveform, _ = torchaudio.load(wav_path)
+        # Construct mel path by:
+        # 1. Split the path into parts
+        path_parts = audio_path.split('/')  # ['dataset', 'Kannada_M', 'wav', 'Ka_M_04513.wav']
         
-        return mel, waveform
-
-
+        # 2. Replace 'wav' directory with 'mel_spectrograms' and change extension
+        mel_filename = os.path.splitext(path_parts[-1])[0] + '.npy'  # 'Ka_M_04513.npy'
+        
+        # 3. Construct mel path based on speaker folder
+        mel_path = os.path.join(
+            self.dataset_dir,  # dataset root directory
+            path_parts[1],     # speaker directory (e.g., 'Kannada_M')
+            'mel_spectrograms', # mel_spectrograms folder
+            mel_filename       # mel spectrogram file
+        )
+        
+        try:
+            # Load mel spectrogram
+            mel = np.load(mel_path)
+            mel = torch.tensor(mel, dtype=torch.float32)
+            
+            # Load audio waveform
+            waveform, _ = torchaudio.load(wav_path)
+            
+            return mel, waveform
+        except Exception as e:
+            print(f"\nError loading files for index {idx}:")
+            print(f"Audio path from CSV: {audio_path}")
+            print(f"Constructed wav path: {wav_path}")
+            print(f"Constructed mel path: {mel_path}")
+            raise
+     
+        
 def fine_tune_hifi_gan(model, train_loader, val_loader, num_epochs=200, checkpoint_dir='./checkpoints'):
     """
     Fine-tune HiFi-GAN on the dataset, including validation.
@@ -113,26 +138,45 @@ def fine_tune_hifi_gan(model, train_loader, val_loader, num_epochs=200, checkpoi
         logging.info(f"Total training time so far: {total_time / 60:.2f} minutes")
 
 def main():
-    # Paths
-    mel_dir = 'dataset'  # Directory with mel-spectrograms
-    dataset_dir = 'dataset'       # Root directory containing speaker subfolders
-    train_csv = 'dataset/metadata/updated_train.csv'  # Path to the updated_train.csv file
-    val_csv = 'dataset/metadata/updated_val.csv'    # Path to the updated_val.csv file
-
+    # Use absolute path for dataset directory
+    dataset_dir = 'dataset'
+    
+    # CSV paths
+    train_csv = os.path.join(dataset_dir, 'metadata', 'updated_train.csv')
+    val_csv = os.path.join(dataset_dir, 'metadata', 'updated_val.csv')
+    
+    print("\nInitializing training...")
+    print(f"Dataset directory: {dataset_dir}")
+    print(f"Training CSV: {train_csv}")
+    print(f"Validation CSV: {val_csv}")
+    
     # Load pretrained HiFi-GAN model
     model = HifiGanModel.from_pretrained("tts_en_hifigan")
     model = model.cuda()
 
-    # Set up data loaders for training and validation
-    train_dataset = HiFiGANDataset(train_csv, mel_dir, dataset_dir)
-    val_dataset = HiFiGANDataset(val_csv, mel_dir, dataset_dir)
+    # Create datasets with smaller batch size initially for testing
+    train_dataset = HiFiGANDataset(train_csv, None, dataset_dir)
+    val_dataset = HiFiGANDataset(val_csv, None, dataset_dir)
     
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
+    # Start with a smaller batch size to test
+    batch_size = 8  # Reduced from 16 to help with debugging
+    
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True,
+        num_workers=2  # Reduced number of workers for testing
+    )
+    
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size, 
+        shuffle=False,
+        num_workers=2
+    )
 
     # Fine-tune the model
     fine_tune_hifi_gan(model, train_loader, val_loader)
-
 
 if __name__ == "__main__":
     main()
