@@ -304,30 +304,10 @@ class TTSDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get a single training item."""
-        
-        # Load pitch and energy features
-        pitch_path = os.path.join(self.root_dir, row['pitch_filepath'])
-        energy_path = os.path.join(self.root_dir, row['energy_filepath'])
-
         try:
-            pitch = safe_torch_load(pitch_path)
-            energy = safe_torch_load(energy_path)
-
-            # Validate loaded tensors
-            if pitch.numel() == 0 or energy.numel() == 0:
-                logging.warning(f"Empty tensor loaded for idx {idx}")
-                pitch = torch.ones(1)  # Default value
-                energy = torch.ones(1)  # Default value
-                
-        except Exception as e:
-            logging.error(f"Error loading features for index {idx}: {str(e)}")
-            pitch = torch.ones(1)  # Default value
-            energy = torch.ones(1)  # Default value
-
-        
-        
-        try:
+            # Get the row first
             row = self.metadata.iloc[idx]
+            
             # Get speaker and language IDs
             speaker = row['speaker_id'].lower()
             language = row['language'].lower()
@@ -339,43 +319,33 @@ class TTSDataset(Dataset):
             phoneme_sequence = str(row['phoneme_sequence'])
             phoneme_ids = self.convert_phonemes_to_ids(phoneme_sequence)
             
-            
-            
-            # # Load features using safe loading function
-            # pitch_path = os.path.join(self.root_dir, row['pitch_filepath'])
-            # energy_path = os.path.join(self.root_dir, row['energy_filepath'])
-            
-            # try:
-            #     pitch = safe_torch_load(pitch_path)
-            #     energy = safe_torch_load(energy_path)
-            # except Exception as e:
-            #     logging.error(f"Error loading features for index {idx}")
-            #     logging.error(f"Pitch path: {pitch_path}")
-            #     logging.error(f"Energy path: {energy_path}")
-            #     raise
-            
-            
+            # Load pitch and energy features
+            pitch_path = os.path.join(self.root_dir, row['pitch_filepath'])
+            energy_path = os.path.join(self.root_dir, row['energy_filepath'])
+
+            try:
+                pitch = safe_torch_load(pitch_path)
+                energy = safe_torch_load(energy_path)
+
+                # Validate loaded tensors
+                if pitch.numel() == 0 or energy.numel() == 0:
+                    logging.warning(f"Empty tensor loaded for idx {idx}")
+                    pitch = torch.ones(1)  # Default value
+                    energy = torch.ones(1)  # Default value
+            except Exception as e:
+                logging.error(f"Error loading features for index {idx}: {str(e)}")
+                pitch = torch.ones(1)  # Default value
+                energy = torch.ones(1)  # Default value
+                
             # Compute mel spectrogram on the fly
             wav_path = os.path.join(self.root_dir, row['audio_filepath'])
-            mel = self.compute_mel(wav_path)
-            
             
             # Debug logging
             logging.debug(f"Loading audio file: {wav_path}")
             if not os.path.exists(wav_path):
                 raise FileNotFoundError(f"Audio file not found: {wav_path}")
                 
-            # mel = compute_mel(wav_path, self.sr, self.n_fft, self.hop_length, self.n_mels)
-            
-            # Estimate durations
-            num_phonemes = len(phoneme_sequence.strip().split())
-            duration = estimate_durations(mel.size(1), num_phonemes)
-            
-            
-            
-            # # Load pre-computed features
-            # pitch = torch.load(os.path.join(self.root_dir, row['pitch_filepath']))
-            # energy = torch.load(os.path.join(self.root_dir, row['energy_filepath']))
+            mel = self.compute_mel(wav_path)
             
             # Ensure all features have matching lengths
             min_length = min(mel.size(1), len(pitch), len(energy))
@@ -384,8 +354,7 @@ class TTSDataset(Dataset):
             energy = energy[:min_length]
             
             # Estimate durations
-            duration = self.estimate_durations(mel.size(1), len(phoneme_ids))
-            
+            duration = estimate_durations(mel.size(1), len(phoneme_ids))
             
             return {
                 "phoneme_ids": phoneme_ids,
@@ -398,13 +367,18 @@ class TTSDataset(Dataset):
                 "phoneme_length": torch.tensor(len(phoneme_ids)),
                 "mel_length": torch.tensor(mel.size(1))
             }
-            
+                
         except Exception as e:
             logging.error(f"Error processing item {idx}:")
-            logging.error(f"Row data: {row.to_dict()}")
+            logging.error(f"Error type: {type(e).__name__}")
+            logging.error(f"Error message: {str(e)}")
+            if 'row' in locals():
+                logging.error(f"Row data: {row.to_dict()}")
             logging.error(f"Root dir: {self.root_dir}")
-            raise 
-        
+            raise  
+
+
+
 def dynamic_collate_fn(batch):
     """Collate function for dynamic batch sizes."""
     # Get max lengths
