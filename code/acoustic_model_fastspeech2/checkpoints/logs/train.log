@@ -99,3 +99,101 @@
 2025-02-09 22:58:20,918 (dataloader_for_acoustic_model:125) WARNING: Unknown phoneme: (hi)lʋəɾ
 2025-02-09 22:58:20,919 (dataloader_for_acoustic_model:125) WARNING: Unknown phoneme: (hi)kʋəɖ
 2025-02-09 22:58:20,919 (dataloader_for_acoustic_model:125) WARNING: Unknown phoneme: (gu)dəɾk
+2025-02-09 23:03:48,206 (dataloader_for_acoustic_model:99) INFO: Built vocabulary with 138 tokens
+2025-02-09 23:03:48,206 (dataloader_for_acoustic_model:100) INFO: Special tokens: ['<pad>', '<unk>', '<s>', '</s>']
+2025-02-09 23:03:49,051 (dataloader_for_acoustic_model:165) INFO: Initialized dataset with 109448 samples
+2025-02-09 23:03:49,052 (dataloader_for_acoustic_model:166) INFO: Vocabulary size: 138
+2025-02-09 23:03:53,912 (dataloader_for_acoustic_model:165) INFO: Initialized dataset with 13681 samples
+2025-02-09 23:03:53,912 (dataloader_for_acoustic_model:166) INFO: Vocabulary size: 138
+2025-02-09 23:03:53,952 (encoder:177) INFO: encoder self-attention layer type = self-attention
+2025-02-09 23:03:54,032 (encoder:177) INFO: encoder self-attention layer type = self-attention
+2025-02-09 23:03:54,316 (initialize:88) INFO: Initialize encoder.encoders.0.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,316 (initialize:88) INFO: Initialize encoder.encoders.0.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,316 (initialize:88) INFO: Initialize encoder.encoders.0.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,316 (initialize:88) INFO: Initialize encoder.encoders.0.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,316 (initialize:88) INFO: Initialize encoder.encoders.0.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,316 (initialize:88) INFO: Initialize encoder.encoders.0.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,316 (initialize:88) INFO: Initialize encoder.encoders.0.norm1.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.0.norm2.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.norm1.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.1.norm2.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.norm1.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.2.norm2.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.3.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.3.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.3.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.3.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.3.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.3.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,317 (initialize:88) INFO: Initialize encoder.encoders.3.norm1.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize encoder.encoders.3.norm2.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize encoder.after_norm.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize duration_predictor.conv.0.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize duration_predictor.conv.0.2.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize duration_predictor.conv.1.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize duration_predictor.conv.1.2.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize duration_predictor.linear.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize pitch_predictor.conv.0.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize pitch_predictor.conv.0.2.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize pitch_predictor.conv.1.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize pitch_predictor.conv.1.2.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize pitch_predictor.linear.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize pitch_embed.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize energy_predictor.conv.0.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize energy_predictor.conv.0.2.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize energy_predictor.conv.1.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize energy_predictor.conv.1.2.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize energy_predictor.linear.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize energy_embed.0.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize decoder.encoders.0.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize decoder.encoders.0.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize decoder.encoders.0.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,318 (initialize:88) INFO: Initialize decoder.encoders.0.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.0.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.0.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.0.norm1.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.0.norm2.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.norm1.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.1.norm2.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.norm1.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.2.norm2.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.3.self_attn.linear_q.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.3.self_attn.linear_k.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.3.self_attn.linear_v.bias to zeros
+2025-02-09 23:03:54,319 (initialize:88) INFO: Initialize decoder.encoders.3.self_attn.linear_out.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize decoder.encoders.3.feed_forward.w_1.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize decoder.encoders.3.feed_forward.w_2.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize decoder.encoders.3.norm1.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize decoder.encoders.3.norm2.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize decoder.after_norm.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize feat_out.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize postnet.postnet.0.1.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize postnet.postnet.1.1.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize postnet.postnet.2.1.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize postnet.postnet.3.1.bias to zeros
+2025-02-09 23:03:54,320 (initialize:88) INFO: Initialize postnet.postnet.4.1.bias to zeros
+2025-02-09 23:03:56,160 (trainer:311) INFO: 1/50epoch started

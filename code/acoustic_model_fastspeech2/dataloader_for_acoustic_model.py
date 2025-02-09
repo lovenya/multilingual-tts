@@ -20,6 +20,14 @@ def get_fixed_inventory():
     
     Note: This is an example inventory. You may refine it based on your needs.
     """
+    special_tokens = [
+        "<pad>",  # Padding token
+        "<unk>",  # Unknown phoneme token
+        "<s>",    # Start of sequence token
+        "</s>",   # End of sequence token
+    ]
+    
+    
     inventory = [
         # English (en-us)
         "(en-us) p", "(en-us) b", "(en-us) t", "(en-us) d", "(en-us) k", "(en-us) g",
@@ -51,12 +59,52 @@ def get_fixed_inventory():
         "(kn) ə", "(kn) a", "(kn) ɪ", "(kn) i", "(kn) ʊ", "(kn) u",
         "(kn) e", "(kn) o", "(kn) ɛ", "(kn) ɔ", "(kn) ɒ",
     ]
-    return inventory
+    return special_tokens + inventory
 
 
+def convert_phonemes_to_ids(phoneme_sequence, phoneme_vocab):
+    """Convert phoneme sequence to IDs with proper error handling."""
+    if not isinstance(phoneme_sequence, str):
+        raise ValueError(f"Expected string, got {type(phoneme_sequence)}")
+    
+    phonemes = phoneme_sequence.strip().split()
+    phoneme_ids = []
+    
+    for phoneme in phonemes:
+        if phoneme in phoneme_vocab:
+            phoneme_ids.append(phoneme_vocab[phoneme])
+        else:
+            logging.warning(f"Unknown phoneme: {phoneme}")
+            phoneme_ids.append(phoneme_vocab["<unk>"])
+    
+    # Add start and end tokens if sequence is not empty
+    if phoneme_ids:
+        phoneme_ids = [phoneme_vocab["<s>"]] + phoneme_ids + [phoneme_vocab["</s>"]]
+    else:
+        phoneme_ids = [phoneme_vocab["<s>"], phoneme_vocab["</s>"]]
+    
+    return torch.tensor(phoneme_ids, dtype=torch.long)
 
 
-
+def build_phoneme_vocab():
+    """Build vocabulary with special tokens and phonemes."""
+    inventory = get_fixed_inventory()
+    
+    # Initialize with special tokens first to ensure consistent IDs
+    phoneme_vocab = {}
+    for idx, token in enumerate(inventory):
+        phoneme_vocab[token] = idx
+    
+    # Log vocabulary information
+    logging.info(f"Built vocabulary with {len(phoneme_vocab)} tokens")
+    logging.info(f"Special tokens: {[k for k in phoneme_vocab.keys() if k.startswith('<')]}")
+    
+    if "<unk>" not in phoneme_vocab:
+        raise ValueError("Vocabulary must contain <unk> token")
+    if "<pad>" not in phoneme_vocab:
+        raise ValueError("Vocabulary must contain <pad> token")
+    
+    return phoneme_vocab
 
 def compute_mel(wav_path, sr=22050, n_fft=1024, hop_length=256, n_mels=80):
     """
@@ -99,34 +147,46 @@ class TTSDataset(Dataset):
         self.root_dir = root_dir
         self.metadata = pd.read_csv(metadata_csv, encoding="utf-8-sig")
         self.phoneme_vocab = phoneme_vocab
-        self.pad_id = 0
+        # self.pad_id = 0
         self.language_map = language_map
         self.speaker_map = speaker_map
         self.sr = sr
-
-    def convert_phonemes_to_ids(self, phoneme_sequence):
-        """Convert a sequence of phonemes to their corresponding IDs.
         
-        Args:
-            phoneme_sequence (str): Space-separated string of phonemes
+        
+         # Validate vocabulary
+        if "<unk>" not in self.phoneme_vocab:
+            raise ValueError("Phoneme vocabulary must contain <unk> token")
+        if "<pad>" not in self.phoneme_vocab:
+            raise ValueError("Phoneme vocabulary must contain <pad> token")
             
-        Returns:
-            torch.Tensor: Tensor of phoneme IDs
-        """
-        # Split the phoneme sequence into individual phonemes
-        phonemes = phoneme_sequence.strip().split()
+        self.pad_id = self.phoneme_vocab["<pad>"]
+        self.unk_id = self.phoneme_vocab["<unk>"]
         
-        # Convert phonemes to IDs using the vocabulary
+        logging.info(f"Initialized dataset with {len(self.metadata)} samples")
+        logging.info(f"Vocabulary size: {len(self.phoneme_vocab)}")
+
+    def convert_phonemes_to_ids(phoneme_sequence, phoneme_vocab):
+        """Convert phoneme sequence to IDs with proper error handling."""
+        if not isinstance(phoneme_sequence, str):
+            raise ValueError(f"Expected string, got {type(phoneme_sequence)}")
+        
+        phonemes = phoneme_sequence.strip().split()
         phoneme_ids = []
+        
         for phoneme in phonemes:
-            if phoneme in self.phoneme_vocab:
-                phoneme_ids.append(self.phoneme_vocab[phoneme])
+            if phoneme in phoneme_vocab:
+                phoneme_ids.append(phoneme_vocab[phoneme])
             else:
                 logging.warning(f"Unknown phoneme: {phoneme}")
-                phoneme_ids.append(self.phoneme_vocab['<unk>'])
-                
+                phoneme_ids.append(phoneme_vocab["<unk>"])
+        
+        # Add start and end tokens if sequence is not empty
+        if phoneme_ids:
+            phoneme_ids = [phoneme_vocab["<s>"]] + phoneme_ids + [phoneme_vocab["</s>"]]
+        else:
+            phoneme_ids = [phoneme_vocab["<s>"], phoneme_vocab["</s>"]]
+        
         return torch.tensor(phoneme_ids, dtype=torch.long)
-
 
 
     def __len__(self):
@@ -201,11 +261,26 @@ def dynamic_collate_fn(batch):
     return phoneme_seqs_padded, mel_specs_padded, pitches_padded, energies_padded, speaker_ids, language_ids, phoneme_mask, mel_mask
 
 
-def build_phoneme_vocab():
-    fixed_inventory = get_fixed_inventory()  # Your function from the inventory file
-    phoneme_vocab = {token: idx for idx, token in enumerate(fixed_inventory)}
-    return phoneme_vocab
 
+# def build_phoneme_vocab():
+#     """Build vocabulary with special tokens and phonemes."""
+#     inventory = get_fixed_inventory()
+    
+#     # Initialize with special tokens first to ensure consistent IDs
+#     phoneme_vocab = {}
+#     for idx, token in enumerate(inventory):
+#         phoneme_vocab[token] = idx
+    
+#     # Log vocabulary information
+#     logging.info(f"Built vocabulary with {len(phoneme_vocab)} tokens")
+#     logging.info(f"Special tokens: {[k for k in phoneme_vocab.keys() if k.startswith('<')]}")
+    
+#     if "<unk>" not in phoneme_vocab:
+#         raise ValueError("Vocabulary must contain <unk> token")
+#     if "<pad>" not in phoneme_vocab:
+#         raise ValueError("Vocabulary must contain <pad> token")
+    
+#     return phoneme_vocab
 
 if __name__ == '__main__':
     # Example mappings (replace with your actual mappings)
