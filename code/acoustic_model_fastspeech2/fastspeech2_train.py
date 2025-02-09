@@ -79,7 +79,7 @@ def build_dataloaders(config):
 
     # Training dataset
     train_dataset = TTSDataset(
-        root_dir="dataset",
+        root_dir=".",
         metadata_csv="dataset/metadata/updated_train.csv",
         phoneme_vocab=phoneme_vocab,
         language_map=language_map,
@@ -88,6 +88,7 @@ def build_dataloaders(config):
 
     # Handle imbalanced languages
     df_train = pd.read_csv("dataset/metadata/updated_train.csv", encoding="utf-8-sig")
+    print("Sample audio filepath:", df_train['audio_filepath'].iloc[0])
     weights = [2.0 if row['language'].lower() in ['gujarathi', 'bhojpuri'] else 1.0 
               for _, row in df_train.iterrows()]
     weights = torch.tensor(weights, dtype=torch.float)
@@ -102,7 +103,7 @@ def build_dataloaders(config):
 
     # Validation dataset
     val_dataset = TTSDataset(
-        root_dir="dataset",
+        root_dir=".",
         metadata_csv="dataset/metadata/updated_val.csv",
         phoneme_vocab=phoneme_vocab,
         language_map=language_map,

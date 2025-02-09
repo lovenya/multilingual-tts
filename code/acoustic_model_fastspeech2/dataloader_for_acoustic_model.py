@@ -1,5 +1,6 @@
 import logging
 import os
+import pickle
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
@@ -133,6 +134,72 @@ def compute_mel(wav_path, sr=22050, n_fft=1024, hop_length=256, n_mels=80):
     mel_spec = mel_transform(waveform)  # shape: (1, n_mels, T)
     return mel_spec.squeeze(0)  # (n_mels, T)
 
+
+def compute_duration(phoneme_sequence, alignment_path):
+    """Compute phoneme durations from alignment."""
+    alignment = torch.load(alignment_path)
+    durations = []
+    current_phoneme = 0
+    duration_count = 0
+    
+    # Convert hard alignment to durations
+    for frame in alignment:
+        if frame == current_phoneme:
+            duration_count += 1
+        else:
+            durations.append(duration_count)
+            current_phoneme = frame
+            duration_count = 1
+    durations.append(duration_count)  # Add last duration
+    
+    return torch.tensor(durations, dtype=torch.long)
+
+
+def estimate_durations(mel_length, num_phonemes):
+    """
+    Estimate durations by evenly distributing frames across phonemes.
+    
+    Args:
+        mel_length (int): Length of mel spectrogram in frames
+        num_phonemes (int): Number of phonemes in the sequence
+    
+    Returns:
+        torch.Tensor: Estimated durations for each phoneme
+    """
+    # Add extra frames for start and end tokens
+    num_phonemes += 2  # For <s> and </s> tokens
+    
+    # Calculate base duration and remainder
+    base_duration = mel_length // num_phonemes
+    remainder = mel_length % num_phonemes
+    
+    # Create durations tensor
+    durations = torch.full((num_phonemes,), base_duration, dtype=torch.long)
+    
+    # Distribute remaining frames
+    if remainder > 0:
+        # Add extra frame to first 'remainder' phonemes
+        durations[:remainder] += 1
+    
+    return durations
+
+
+def safe_torch_load(filepath):
+    """Safely load torch files with backwards compatibility."""
+    try:
+        # Try different loading methods
+        try:
+            # Method 1: Standard loading
+            return torch.load(filepath, map_location='cpu')
+        except:
+            # Method 2: Legacy loading
+            return torch.load(filepath, map_location='cpu', pickle_module=pickle)
+    except Exception as e:
+        logging.error(f"Failed to load file {filepath}: {str(e)}")
+        # Return a default tensor if loading fails
+        return torch.zeros(1)  # Return dummy tensor on failure
+    
+    
 class TTSDataset(Dataset):
     def __init__(self, root_dir, metadata_csv, phoneme_vocab, language_map, speaker_map, sr=22050):
         """
@@ -152,6 +219,51 @@ class TTSDataset(Dataset):
         self.speaker_map = speaker_map
         self.sr = sr
         
+        self.n_fft = 1024
+        self.hop_length = 256
+        self.n_mels = 80
+        
+        
+        # Count unknown phonemes for logging
+        self.unknown_phonemes = set()
+        
+        
+        # Create mel transform
+        self.mel_transform = torchaudio.transforms.MelSpectrogram(
+            sample_rate=sr,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            n_mels=self.n_mels
+        )
+        
+        
+        def compute_mel(self, wav_path):
+            """Compute mel-spectrogram on the fly."""
+            waveform, sample_rate = torchaudio.load(wav_path)
+            if sample_rate != self.sr:
+                resampler = torchaudio.transforms.Resample(
+                    orig_freq=sample_rate, 
+                    new_freq=self.sr
+                )
+                waveform = resampler(waveform)
+            
+            # Convert to mono if stereo
+            if waveform.size(0) > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+                
+            mel_spec = self.mel_transform(waveform)  # (1, n_mels, T)
+            return mel_spec.squeeze(0)  # (n_mels, T)
+
+        
+        # Validate required columns
+        required_columns = ['speaker_id', 'language', 'phoneme_sequence',
+                            'pitch_filepath', 'energy_filepath']
+        missing_columns = [col for col in required_columns if col not in self.metadata.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+            
+        logging.info(f"Loaded dataset with {len(self.metadata)} samples")
+
         
          # Validate vocabulary
         if "<unk>" not in self.phoneme_vocab:
@@ -165,8 +277,8 @@ class TTSDataset(Dataset):
         logging.info(f"Initialized dataset with {len(self.metadata)} samples")
         logging.info(f"Vocabulary size: {len(self.phoneme_vocab)}")
 
-    def convert_phonemes_to_ids(phoneme_sequence, phoneme_vocab):
-        """Convert phoneme sequence to IDs with proper error handling."""
+    def convert_phonemes_to_ids(self, phoneme_sequence):
+        """Convert phoneme sequence to IDs with better unknown phoneme handling."""
         if not isinstance(phoneme_sequence, str):
             raise ValueError(f"Expected string, got {type(phoneme_sequence)}")
         
@@ -174,92 +286,172 @@ class TTSDataset(Dataset):
         phoneme_ids = []
         
         for phoneme in phonemes:
-            if phoneme in phoneme_vocab:
-                phoneme_ids.append(phoneme_vocab[phoneme])
+            if phoneme in self.phoneme_vocab:
+                phoneme_ids.append(self.phoneme_vocab[phoneme])
             else:
-                logging.warning(f"Unknown phoneme: {phoneme}")
-                phoneme_ids.append(phoneme_vocab["<unk>"])
+                if phoneme not in self.unknown_phonemes:
+                    logging.warning(f"Unknown phoneme: {phoneme}")
+                    self.unknown_phonemes.add(phoneme)
+                phoneme_ids.append(self.phoneme_vocab["<unk>"])
         
-        # Add start and end tokens if sequence is not empty
-        if phoneme_ids:
-            phoneme_ids = [phoneme_vocab["<s>"]] + phoneme_ids + [phoneme_vocab["</s>"]]
-        else:
-            phoneme_ids = [phoneme_vocab["<s>"], phoneme_vocab["</s>"]]
+        # Add start and end tokens if needed
+        if "<s>" in self.phoneme_vocab and "</s>" in self.phoneme_vocab:
+            phoneme_ids = [self.phoneme_vocab["<s>"]] + phoneme_ids + [self.phoneme_vocab["</s>"]]
         
         return torch.tensor(phoneme_ids, dtype=torch.long)
-
-
     def __len__(self):
         return len(self.metadata)
 
     def __getitem__(self, idx):
-        # Get the row from metadata
-        row = self.metadata.iloc[idx]
+        """Get a single training item."""
         
-        # Get speaker and language IDs
-        speaker = row['speaker_id'].lower()
-        language = row['language'].lower()
-        speaker_id = torch.tensor(self.speaker_map[speaker], dtype=torch.long)
-        language_id = torch.tensor(self.language_map[language], dtype=torch.long)
-        
-        # Get phoneme sequence
-        phoneme_sequence = row['phoneme_sequence']  # Assuming this column exists
-        phoneme_ids = self.convert_phonemes_to_ids(phoneme_sequence)
-        
-        # Get mel spectrogram
-        mel_path = os.path.join(self.root_dir, row['mel_path'])
-        mel = torch.load(mel_path)
-        
-        # Get duration, pitch, energy features if available
-        duration = torch.load(os.path.join(self.root_dir, row['duration_path']))
-        pitch = torch.load(os.path.join(self.root_dir, row['pitch_path']))
-        energy = torch.load(os.path.join(self.root_dir, row['energy_path']))
-        
-        return {
-            "phoneme_ids": phoneme_ids,  # (T,)
-            "speaker_id": speaker_id,    # (1,)
-            "language_id": language_id,   # (1,)
-            "mel": mel,                  # (80, T)
-            "duration": duration,        # (T,)
-            "pitch": pitch,              # (T,)
-            "energy": energy,            # (T,)
-            "phoneme_length": torch.tensor(len(phoneme_ids)),
-            "mel_length": torch.tensor(mel.size(1))
-        }
+        # Load pitch and energy features
+        pitch_path = os.path.join(self.root_dir, row['pitch_filepath'])
+        energy_path = os.path.join(self.root_dir, row['energy_filepath'])
 
+        try:
+            pitch = safe_torch_load(pitch_path)
+            energy = safe_torch_load(energy_path)
+
+            # Validate loaded tensors
+            if pitch.numel() == 0 or energy.numel() == 0:
+                logging.warning(f"Empty tensor loaded for idx {idx}")
+                pitch = torch.ones(1)  # Default value
+                energy = torch.ones(1)  # Default value
+                
+        except Exception as e:
+            logging.error(f"Error loading features for index {idx}: {str(e)}")
+            pitch = torch.ones(1)  # Default value
+            energy = torch.ones(1)  # Default value
+
+        
+        
+        try:
+            row = self.metadata.iloc[idx]
+            # Get speaker and language IDs
+            speaker = row['speaker_id'].lower()
+            language = row['language'].lower()
+            
+            speaker_id = torch.tensor(self.speaker_map[speaker], dtype=torch.long)
+            language_id = torch.tensor(self.language_map[language], dtype=torch.long)
+            
+            # Get phoneme sequence
+            phoneme_sequence = str(row['phoneme_sequence'])
+            phoneme_ids = self.convert_phonemes_to_ids(phoneme_sequence)
+            
+            
+            
+            # # Load features using safe loading function
+            # pitch_path = os.path.join(self.root_dir, row['pitch_filepath'])
+            # energy_path = os.path.join(self.root_dir, row['energy_filepath'])
+            
+            # try:
+            #     pitch = safe_torch_load(pitch_path)
+            #     energy = safe_torch_load(energy_path)
+            # except Exception as e:
+            #     logging.error(f"Error loading features for index {idx}")
+            #     logging.error(f"Pitch path: {pitch_path}")
+            #     logging.error(f"Energy path: {energy_path}")
+            #     raise
+            
+            
+            # Compute mel spectrogram on the fly
+            wav_path = os.path.join(self.root_dir, row['audio_filepath'])
+            mel = self.compute_mel(wav_path)
+            
+            
+            # Debug logging
+            logging.debug(f"Loading audio file: {wav_path}")
+            if not os.path.exists(wav_path):
+                raise FileNotFoundError(f"Audio file not found: {wav_path}")
+                
+            # mel = compute_mel(wav_path, self.sr, self.n_fft, self.hop_length, self.n_mels)
+            
+            # Estimate durations
+            num_phonemes = len(phoneme_sequence.strip().split())
+            duration = estimate_durations(mel.size(1), num_phonemes)
+            
+            
+            
+            # # Load pre-computed features
+            # pitch = torch.load(os.path.join(self.root_dir, row['pitch_filepath']))
+            # energy = torch.load(os.path.join(self.root_dir, row['energy_filepath']))
+            
+            # Ensure all features have matching lengths
+            min_length = min(mel.size(1), len(pitch), len(energy))
+            mel = mel[:, :min_length]
+            pitch = pitch[:min_length]
+            energy = energy[:min_length]
+            
+            # Estimate durations
+            duration = self.estimate_durations(mel.size(1), len(phoneme_ids))
+            
+            
+            return {
+                "phoneme_ids": phoneme_ids,
+                "speaker_id": speaker_id,
+                "language_id": language_id,
+                "mel": mel,
+                "duration": duration,
+                "pitch": pitch,
+                "energy": energy,
+                "phoneme_length": torch.tensor(len(phoneme_ids)),
+                "mel_length": torch.tensor(mel.size(1))
+            }
+            
+        except Exception as e:
+            logging.error(f"Error processing item {idx}:")
+            logging.error(f"Row data: {row.to_dict()}")
+            logging.error(f"Root dir: {self.root_dir}")
+            raise 
+        
 def dynamic_collate_fn(batch):
-    """
-    Custom collate function for dynamic batching of variable-length sequences.
-    Pads phoneme sequences, mel-spectrograms, pitch, and energy to the maximum length in the batch.
+    """Collate function for dynamic batch sizes."""
+    # Get max lengths
+    max_phoneme_len = max(x["phoneme_length"] for x in batch)
+    max_mel_len = max(x["mel_length"] for x in batch)
     
-    Each item in batch is:
-      (phoneme_ids, mel_spec, pitch, energy, speaker_id, language_id)
-    """
-    # Sort batch by length of phoneme sequence (descending)
-    batch.sort(key=lambda x: len(x[0]), reverse=True)
-    phoneme_seqs, mel_specs, pitches, energies, speaker_ids, language_ids = zip(*batch)
+    # Initialize tensors
+    batch_size = len(batch)
+    phoneme_ids = torch.zeros(batch_size, max_phoneme_len, dtype=torch.long)
+    speaker_ids = torch.zeros(batch_size, dtype=torch.long)
+    language_ids = torch.zeros(batch_size, dtype=torch.long)
+    mels = torch.zeros(batch_size, batch[0]["mel"].size(0), max_mel_len)
+    durations = torch.zeros(batch_size, max_phoneme_len)
+    pitch = torch.zeros(batch_size, max_mel_len)
+    energy = torch.zeros(batch_size, max_mel_len)
     
-    # Pad phoneme sequences
-    phoneme_seqs_padded = rnn_utils.pad_sequence(phoneme_seqs, batch_first=True, padding_value=0)
+    phoneme_lengths = []
+    mel_lengths = []
     
-    # Pad mel-spectrograms: assume mel_spec shape is (n_mels, T); pad along T.
-    mel_specs_padded = rnn_utils.pad_sequence([spec.t() for spec in mel_specs], batch_first=True, padding_value=0)
-    mel_specs_padded = mel_specs_padded.transpose(1, 2)  # (B, n_mels, T)
+    for i, item in enumerate(batch):
+        phoneme_len = item["phoneme_length"]
+        mel_len = item["mel_length"]
+        
+        # Store lengths
+        phoneme_lengths.append(phoneme_len)
+        mel_lengths.append(mel_len)
+        
+        # Fill tensors with data
+        phoneme_ids[i, :phoneme_len] = item["phoneme_ids"]
+        speaker_ids[i] = item["speaker_id"]
+        language_ids[i] = item["language_id"]
+        mels[i, :, :mel_len] = item["mel"]
+        durations[i, :phoneme_len] = item["duration"]
+        pitch[i, :mel_len] = item["pitch"]
+        energy[i, :mel_len] = item["energy"]
     
-    # Pad pitch and energy arrays along time dimension.
-    pitches_padded = rnn_utils.pad_sequence(pitches, batch_first=True, padding_value=0)
-    energies_padded = rnn_utils.pad_sequence(energies, batch_first=True, padding_value=0)
-    
-    # Stack speaker and language IDs (scalars per sample)
-    speaker_ids = torch.stack(speaker_ids)
-    language_ids = torch.stack(language_ids)
-    
-    # Generate mask for padded phoneme sequences
-    phoneme_mask = phoneme_seqs_padded != 0  # True for non-padded tokens
-    mel_mask = mel_specs_padded.sum(dim=1) != 0  # True for non-padded mel-spectrogram entries
-    
-    return phoneme_seqs_padded, mel_specs_padded, pitches_padded, energies_padded, speaker_ids, language_ids, phoneme_mask, mel_mask
-
+    return {
+        "phoneme_ids": phoneme_ids,
+        "speaker_ids": speaker_ids,
+        "language_ids": language_ids,
+        "mels": mels,
+        "durations": durations,
+        "pitch": pitch,
+        "energy": energy,
+        "phoneme_lengths": torch.tensor(phoneme_lengths),
+        "mel_lengths": torch.tensor(mel_lengths)
+    }
 
 
 # def build_phoneme_vocab():

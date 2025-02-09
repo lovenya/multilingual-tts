@@ -20,3 +20,5 @@ phonemizer.log
 *.pub.5
 *.pub.1
 /checkpoints/
+
+code/acoustic_model_fastspeech2/checkpoints/
