@@ -51,11 +51,11 @@ def main():
     sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
 
     train_loader = DataLoader(
-        train_dataset, batch_size=config['batch_size'], collate_fn=dynamic_collate_fn, sampler=sampler
+        train_dataset, batch_size=config['train_config']['batch_size'], collate_fn=dynamic_collate_fn, sampler=sampler
     )
 
     # Validation DataLoader
-    val_metadata = "dataset/metadata/updated_val.csv"
+    val_metadata = "dataset/metadata/updated_validation.csv"
     val_dataset = TTSDataset(
         root_dir="dataset",
         metadata_csv=val_metadata,
@@ -63,28 +63,43 @@ def main():
         language_map=language_map,
         speaker_map=speaker_map
     )
-    val_loader = DataLoader(val_dataset, batch_size=config['batch_size'], collate_fn=dynamic_collate_fn, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=config['train_config']['batch_size'], collate_fn=dynamic_collate_fn, shuffle=False)
 
     # Initialize the model
+     # Initialize the model and optimizer
     model = FastSpeech2MultiLingual(config)
     model = model.cuda()
-
-    # Build optimizer
     optimizer = build_optimizer(model, config)
 
-    # Initialize the task directly
-    task = TTSTask(config=config, model=model, optimizer=optimizer)
-
-    # Initialize Trainer
+    # Initialize Trainer with the correct parameter names
+    # Initialize Trainer with the correct parameter names
+    # Initialize Trainer with the correct parameter names
     trainer = Trainer(
-        task=task,
-        train_loader=train_loader,
-        valid_loader=val_loader,
+        iterators={
+            "main": train_loader,
+            "valid": val_loader
+        },
+        model=model,
+        optimizers={"main": optimizer},
+        schedulers={},  # Empty dict since we're not using schedulers
         max_epoch=config['train_config']['num_epochs'],
-        expdir=os.path.join(config['checkpoint_config']['checkpoint_dir'], 'exp'),
-        resume=False,
-        log_interval=config['checkpoint_config']['log_interval'],
-        checkpoint_save_interval=config['checkpoint_config']['checkpoint_save_interval'],
+        reporter=None,
+        scaler=None,
+        options={
+            "train": {
+                "ngpu": 1,
+                "grad_clip": 1.0,
+                "accum_grad": 1,
+                "log_interval": config['train_config'].get('log_interval', 50),
+            },
+            "save_interval_epochs": config['train_config'].get('checkpoint_save_interval', 5),
+            "output_dir": os.path.join(config.get('checkpoint_dir', 'exp/train')),
+            "device": "cuda",
+            "best_model_criterion": [("valid/loss", "min")],
+            "keep_nbest_models": 5,
+            "early_stopping_criterion": None,
+        },
+        distributed_option=None
     )
 
     # Run the training process
