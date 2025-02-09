@@ -5,44 +5,55 @@ import torch
 from torch.utils.data import DataLoader
 import torchaudio
 import os
+import pandas as pd
 import numpy as np
 
-# Load pretrained HiFi-GAN model
-def load_pretrained_model(model_name="hifigan_16k"):
-    logging.info(f"Loading pretrained HiFi-GAN model: {model_name}")
-    model = HIFIGANModel.from_pretrained(model_name)
-    return model
-
-# DataLoader for training
+# DataLoader for training and validation
 class HiFiGANDataset(torch.utils.data.Dataset):
-    def __init__(self, mel_dir, waveform_dir):
+    def __init__(self, csv_file, mel_dir, dataset_dir):
         """
-        Dataset for HiFi-GAN training. Pairs mel-spectrograms with raw waveforms.
+        Dataset for HiFi-GAN training. Loads mel-spectrograms and raw waveforms
+        based on the CSV metadata and directory structure.
+        
         Parameters:
+        - csv_file: Path to the CSV file with metadata (e.g., updated_train.csv)
         - mel_dir: Directory containing mel-spectrograms (.npy files)
-        - waveform_dir: Directory containing raw waveforms (.wav files)
+        - dataset_dir: Root directory containing subfolders for each speaker
         """
-        self.mel_files = [os.path.join(mel_dir, f) for f in os.listdir(mel_dir) if f.endswith('.npy')]
-        self.wav_files = [os.path.join(waveform_dir, f.replace('.npy', '.wav')) for f in os.listdir(mel_dir) if f.endswith('.npy')]
+        self.data = pd.read_csv(csv_file)
         self.mel_dir = mel_dir
-        self.wav_dir = waveform_dir
+        self.dataset_dir = dataset_dir
 
     def __len__(self):
-        return len(self.mel_files)
+        return len(self.data)
 
     def __getitem__(self, idx):
-        mel = np.load(self.mel_files[idx])
-        mel = torch.tensor(mel, dtype=torch.float32)
-        wav, _ = torchaudio.load(self.wav_files[idx])
-        return mel, wav
+        row = self.data.iloc[idx]
+        
+        # Get the speaker folder and audio file path from the metadata
+        speaker_folder = row['speaker_id']  # Assuming speaker_id is the folder name
+        wav_path = os.path.join(self.dataset_dir, speaker_folder, 'wav', row['audio_filepath'])
+        
+        # Construct the mel spectrogram file path
+        mel_path = os.path.join(self.dataset_dir, speaker_folder, 'mel-spectrograms', row['audio_filepath'].replace('.wav', '.npy'))
 
-def fine_tune_hifi_gan(model, train_loader, optimizer, num_epochs, checkpoint_dir='./checkpoints'):
+        # Load mel spectrogram and waveform
+        mel = np.load(mel_path)
+        mel = torch.tensor(mel, dtype=torch.float32)
+        
+        waveform, _ = torchaudio.load(wav_path)
+        
+        return mel, waveform
+
+
+def fine_tune_hifi_gan(model, train_loader, val_loader, num_epochs=200, checkpoint_dir='./checkpoints'):
     """
-    Fine-tune HiFi-GAN on the dataset.
+    Fine-tune HiFi-GAN on the dataset, including validation.
     """
     model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.999))
     criterion = torch.nn.MSELoss()
-    
+
     # Training loop
     for epoch in range(num_epochs):
         running_loss = 0.0
@@ -63,28 +74,45 @@ def fine_tune_hifi_gan(model, train_loader, optimizer, num_epochs, checkpoint_di
             if i % 100 == 0:  # Log every 100 batches
                 logging.info(f"Epoch {epoch+1}, Iter {i}, Loss: {running_loss / (i+1)}")
 
+        # Evaluate on validation set after each epoch
+        val_loss = 0.0
+        model.eval()
+        with torch.no_grad():
+            for mel, waveform in val_loader:
+                mel, waveform = mel.cuda(), waveform.cuda()
+                generated_waveform = model.generator(mel)
+                val_loss += criterion(generated_waveform, waveform).item()
+        val_loss /= len(val_loader)
+        logging.info(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
+
         # Save checkpoint after each epoch
         if (epoch + 1) % 10 == 0:
             checkpoint_path = os.path.join(checkpoint_dir, f"hifi_gan_epoch_{epoch+1}.ckpt")
             model.save_to(checkpoint_path)
             logging.info(f"Checkpoint saved to {checkpoint_path}")
 
+
 def main():
+    # Paths
+    mel_dir = 'dataset'  # Directory with mel-spectrograms
+    dataset_dir = 'dataset'       # Root directory containing speaker subfolders
+    train_csv = 'dataset/metadata/updated_train.csv'  # Path to the updated_train.csv file
+    val_csv = 'dataset/metadata/updated_val.csv'    # Path to the updated_val.csv file
+
     # Load pretrained HiFi-GAN model
-    model = load_pretrained_model()
+    model = HIFIGANModel.from_pretrained("tts_en_hifigan")
     model = model.cuda()
 
-    # Set up data loader
-    mel_dir = 'path/to/mel/spectrograms'  # Directory with mel-spectrograms
-    waveform_dir = 'path/to/wav/files'    # Directory with raw waveforms
-    train_dataset = HiFiGANDataset(mel_dir, waveform_dir)
+    # Set up data loaders for training and validation
+    train_dataset = HiFiGANDataset(train_csv, mel_dir, dataset_dir)
+    val_dataset = HiFiGANDataset(val_csv, mel_dir, dataset_dir)
+    
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-
-    # Set optimizer (Adam)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.999))
+    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
 
     # Fine-tune the model
-    fine_tune_hifi_gan(model, train_loader, optimizer, num_epochs=200)
+    fine_tune_hifi_gan(model, train_loader, val_loader)
+
 
 if __name__ == "__main__":
     main()
