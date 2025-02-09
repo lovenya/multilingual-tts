@@ -9,7 +9,7 @@ class FastSpeech2MultiLingual(nn.Module):
         """
         A multilingual FastSpeech2 model that uses custom embeddings and predictors,
         while leveraging ESPnet2's FastSpeech2 encoder as the acoustic backbone.
-        
+
         Args:
             config (dict): Configuration dictionary containing hyperparameters.
                            Must include key "pretrained_encoder_path" for loading the
@@ -19,9 +19,9 @@ class FastSpeech2MultiLingual(nn.Module):
 
         # Custom embeddings for phonemes, languages, and speakers.
         self.embeddings = Embeddings(
-            config["phoneme_vocab_size"],
-            config["phoneme_embedding_dim"],
-            config["language_vocab_size"],
+            config["phoneme_vocab_size"],       # Ensure this is 78 for the pretrained model
+            config["phoneme_embedding_dim"],    # Set this to 78 for the pretrained model
+            config["language_vocab_size"],      # For languages: {en, gu, bh, kn}
             config["language_embedding_dim"],
             config["speaker_vocab_size"],
             config["speaker_embedding_dim"]
@@ -35,7 +35,7 @@ class FastSpeech2MultiLingual(nn.Module):
 
         # ESPnet2's FastSpeech2 model initialization
         self.espnet_fastspeech2 = ESPnetFastSpeech2(
-            idim=config["phoneme_vocab_size"],    # This will depend on your dataset and configuration
+            idim=config["phoneme_vocab_size"],    # 78 for the pretrained model
             odim=config["mel_dim"],                # Mel-spectrogram output dimension
             adim=config["adim"],
             aheads=config["n_heads"],
@@ -46,16 +46,19 @@ class FastSpeech2MultiLingual(nn.Module):
             postnet_layers=config["postnet_layers"],
             postnet_chans=config["postnet_chans"],
             postnet_filts=config["postnet_filts"],
-            dropout=config["dropout"]
+            # dropout_rate=config["dropout"]
         )
 
         # Optionally load pretrained encoder weights if provided
         if "pretrained_encoder_path" in config and config["pretrained_encoder_path"]:
             print(f"Loading pretrained encoder weights from {config['pretrained_encoder_path']}")
             checkpoint = torch.load(config["pretrained_encoder_path"], map_location="cpu")
-            self.espnet_fastspeech2.encoder.load_state_dict(checkpoint['encoder'], strict=False)
+            print("Checkpoint Keys:", checkpoint.keys())  # To inspect the available keys
 
-        self.encoder = self.espnet_fastspeech2.encoder
+            # Modify checkpoint to match the model's keys
+            state_dict = checkpoint.get('model', checkpoint)  # Adjust for different checkpoint formats
+            state_dict = {k: v for k, v in state_dict.items() if k in self.espnet_fastspeech2.state_dict()}
+            self.espnet_fastspeech2.load_state_dict(state_dict, strict=False)
 
         # Initialize predictors for prosodic features from scratch
         self.duration_predictor = DurationPredictor(config["hidden_size"], kernel_size=3, dropout=config["dropout"])
@@ -85,7 +88,7 @@ class FastSpeech2MultiLingual(nn.Module):
 
         # Transpose for the encoder (ESPnet2 expects [T, B, hidden_size]).
         x = x.transpose(0, 1)
-        encoder_output = self.encoder(x)
+        encoder_output = self.espnet_fastspeech2.encoder(x)
         encoder_output = encoder_output.transpose(0, 1)  # (B, T, hidden_size)
 
         # Predict prosodic features
