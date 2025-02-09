@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import torch
@@ -98,9 +99,35 @@ class TTSDataset(Dataset):
         self.root_dir = root_dir
         self.metadata = pd.read_csv(metadata_csv, encoding="utf-8-sig")
         self.phoneme_vocab = phoneme_vocab
+        self.pad_id = 0
         self.language_map = language_map
         self.speaker_map = speaker_map
         self.sr = sr
+
+    def convert_phonemes_to_ids(self, phoneme_sequence):
+        """Convert a sequence of phonemes to their corresponding IDs.
+        
+        Args:
+            phoneme_sequence (str): Space-separated string of phonemes
+            
+        Returns:
+            torch.Tensor: Tensor of phoneme IDs
+        """
+        # Split the phoneme sequence into individual phonemes
+        phonemes = phoneme_sequence.strip().split()
+        
+        # Convert phonemes to IDs using the vocabulary
+        phoneme_ids = []
+        for phoneme in phonemes:
+            if phoneme in self.phoneme_vocab:
+                phoneme_ids.append(self.phoneme_vocab[phoneme])
+            else:
+                logging.warning(f"Unknown phoneme: {phoneme}")
+                phoneme_ids.append(self.phoneme_vocab['<unk>'])
+                
+        return torch.tensor(phoneme_ids, dtype=torch.long)
+
+
 
     def __len__(self):
         return len(self.metadata)
